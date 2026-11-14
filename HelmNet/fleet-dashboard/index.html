@@ -1,0 +1,1993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartHelm — Fleet Operations Center</title>
+<style>
+:root {
+  --bg:      #121212;
+  --card:    #1a1a1a;
+  --card2:   #1e1e1e;
+  --border:  #2a2a2a;
+  --border2: #3a3a3a;
+  --cyan:    #00e5ff;
+  --green:   #22cc44;
+  --amber:   #ffa500;
+  --red:     #ff4444;
+  --purple:  #e040fb;
+  --text:    #f0f0f0;
+  --mid:     #909090;
+  --dim:     #555555;
+  --mono:    'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
+  --sans:    'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:13px}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── HEADER ── */
+header{
+  background:linear-gradient(180deg,#1e1e1e 0%,#1a1a1a 100%);
+  border-bottom:1px solid var(--border);
+  padding:10px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;position:sticky;top:0;z-index:100;
+}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{
+  width:32px;height:32px;flex-shrink:0;position:relative;
+  background:linear-gradient(135deg,#22cc44,#1a9933);
+  clip-path:polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);
+}
+.logo-mark::after{
+  content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:12px;height:8px;background:rgba(0,0,0,.55);border-radius:2px;
+}
+.logo-text{font-size:1.15rem;font-weight:800;letter-spacing:.5px;color:var(--text)}
+.logo-text span{color:var(--green)}
+.logo-sub{font-size:.58rem;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-top:1px}
+.header-mid{text-align:center;font-size:.72rem;color:var(--mid);line-height:1.6}
+.header-mid strong{color:var(--text)}
+.header-right{display:flex;align-items:center;gap:10px}
+.live-pill{
+  display:flex;align-items:center;gap:5px;padding:4px 11px;
+  border-radius:20px;background:rgba(34,204,68,.08);
+  border:1px solid rgba(34,204,68,.3);color:var(--green);
+  font-size:.65rem;font-weight:700;letter-spacing:.5px;
+}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 1.2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.hdr-time{font-family:var(--mono);font-size:.8rem;color:var(--mid)}
+.export-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:6px 14px;border-radius:6px;border:1px solid var(--border2);
+  background:var(--card2);color:var(--mid);
+  font-size:.68rem;font-weight:600;cursor:pointer;
+  transition:all .2s;font-family:var(--sans);
+}
+.export-btn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,.06)}
+
+/* ── STATS BAR ── */
+.stats-bar{
+  display:grid;grid-template-columns:repeat(7,1fr);
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.sbox{
+  padding:10px 14px;text-align:center;border-right:1px solid var(--border);
+  background:var(--card);position:relative;overflow:hidden;
+}
+.sbox:last-child{border-right:none}
+.sbox::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
+  background:var(--accent,transparent);
+}
+.sbox-val{
+  font-size:1.5rem;font-weight:800;line-height:1;
+  font-family:var(--mono);
+}
+.sbox-lbl{font-size:.58rem;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin-top:4px}
+.c-cyan{color:var(--cyan)}
+.c-green{color:var(--green)}
+.c-amber{color:var(--amber)}
+.c-red{color:var(--red)}
+.c-purple{color:var(--purple)}
+.c-white{color:var(--text)}
+
+/* ── MAIN LAYOUT ── */
+.main{display:grid;grid-template-columns:1fr 308px;flex:1;min-height:0;gap:0}
+
+/* ── RIDER GRID ── */
+.rider-grid{
+  padding:14px;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+  align-content:start;overflow-y:auto;
+}
+
+/* ── RIDER CARD ── */
+.rider-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;transition:border-color .4s,box-shadow .4s;
+  display:flex;flex-direction:column;
+}
+.rider-card.st-1{border-color:rgba(255,179,0,.5)}
+.rider-card.st-2{
+  border-color:var(--red);
+  box-shadow:0 0 0 1px rgba(255,23,68,.15),0 0 20px rgba(255,23,68,.12);
+  animation:glow-red 1.5s ease-in-out infinite;
+}
+.rider-card.st-3{
+  border-color:var(--purple);
+  animation:glow-crit .7s ease-in-out infinite;
+}
+@keyframes glow-red{0%,100%{box-shadow:0 0 0 1px rgba(255,23,68,.1),0 0 16px rgba(255,23,68,.08)}50%{box-shadow:0 0 0 1px rgba(255,23,68,.25),0 0 28px rgba(255,23,68,.2)}}
+@keyframes glow-crit{0%,100%{box-shadow:0 0 0 1px rgba(224,64,251,.1),0 0 16px rgba(224,64,251,.08)}50%{box-shadow:0 0 0 1px rgba(224,64,251,.3),0 0 32px rgba(224,64,251,.25)}}
+
+.card-head{
+  padding:8px 11px;background:var(--card2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+}
+.rider-name{font-weight:700;font-size:.82rem;white-space:nowrap}
+.rider-sub{font-size:.6rem;color:var(--dim);margin-top:1px}
+.head-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.fatigue-dot{
+  width:8px;height:8px;border-radius:50%;
+  title:'Shift fatigue';cursor:default;flex-shrink:0;
+}
+.status-badge{
+  font-size:.58rem;font-weight:800;padding:3px 8px;border-radius:4px;
+  letter-spacing:.5px;white-space:nowrap;font-family:var(--mono);
+}
+.b-normal  {background:rgba(0,255,136,.08);color:var(--green);border:1px solid rgba(0,255,136,.25)}
+.b-warning {background:rgba(255,179,0,.08);color:var(--amber);border:1px solid rgba(255,179,0,.3)}
+.b-critical{background:rgba(255,23,68,.08);color:var(--red);  border:1px solid rgba(255,23,68,.3)}
+.b-emergency{background:rgba(224,64,251,.08);color:var(--purple);border:1px solid rgba(224,64,251,.3)}
+
+/* ── CAM FEED ── */
+.cam-wrap{position:relative;background:#000;height:140px;overflow:hidden;flex-shrink:0}
+.cam-wrap canvas{width:100%;height:100%;display:block}
+.cam-tl,.cam-tr,.cam-bl,.cam-br{
+  position:absolute;font-size:.56rem;z-index:10;
+  font-family:var(--mono);color:rgba(255,255,255,.5);
+}
+.cam-tl{top:5px;left:7px}
+.cam-tr{top:5px;right:7px;display:flex;align-items:center;gap:4px}
+.cam-bl{bottom:5px;left:7px;display:flex;align-items:center;gap:5px}
+.cam-br{bottom:5px;right:7px}
+.rec-dot{width:6px;height:6px;border-radius:50%;background:#ff1744;animation:blink .9s infinite}
+.eye-tag{font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:3px;font-family:var(--mono)}
+.et-open   {background:rgba(0,255,136,.75);color:#000}
+.et-closed {background:rgba(255,23,68,.82); color:#fff}
+.et-unknown{background:rgba(72,79,88,.75);  color:#ccc}
+.confidence-tag{font-size:.56rem;color:rgba(0,229,255,.7);font-family:var(--mono)}
+
+/* ── CARD BODY ── */
+.card-body{padding:8px 11px;display:flex;flex-direction:column;gap:5px;flex:1}
+
+/* Face lock row */
+.facelock-row{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:.62rem;color:var(--dim);
+}
+.facelock-val{font-family:var(--mono);font-weight:600;font-size:.68rem}
+.facelock-bar{
+  flex:1;height:3px;margin:0 8px;
+  background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;
+}
+.facelock-fill{height:100%;border-radius:2px;transition:width .5s ease,background .5s}
+
+/* Meter rows */
+.meter-row{display:flex;align-items:center;gap:6px;font-size:.67rem}
+.meter-label{width:58px;flex-shrink:0;color:var(--dim)}
+.meter-track{
+  flex:1;height:5px;background:rgba(255,255,255,.06);
+  border-radius:3px;overflow:visible;position:relative;cursor:help;
+}
+.meter-fill{height:100%;border-radius:3px;transition:width .5s ease,background .5s}
+.mf-green{background:var(--green)}
+.mf-amber{background:var(--amber)}
+.mf-red  {background:var(--red)}
+.mf-cyan {background:var(--cyan)}
+.meter-val{width:40px;text-align:right;font-weight:700;font-family:var(--mono);font-size:.67rem}
+
+/* PERCLOS tooltip */
+.meter-track[data-tip]{position:relative}
+.meter-track[data-tip]:hover::after{
+  content:attr(data-tip);
+  position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);
+  background:#1c2333;border:1px solid var(--border2);
+  color:var(--mid);font-size:.62rem;font-family:var(--sans);
+  padding:6px 10px;border-radius:6px;white-space:nowrap;z-index:999;
+  pointer-events:none;line-height:1.5;max-width:240px;white-space:normal;
+  box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.meter-track[data-tip]:hover::before{
+  content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:var(--border2);z-index:1000;
+}
+
+/* Sparkline */
+.sparkline-wrap{padding:2px 0 4px;position:relative}
+.sparkline{display:block;width:100%;height:24px;overflow:visible}
+.spark-threshold{stroke:rgba(255,23,68,.3);stroke-width:.8;stroke-dasharray:3,3}
+.spark-line{fill:none;stroke-width:1.3;stroke-linejoin:round;stroke-linecap:round}
+.spark-area{stroke:none;opacity:.18}
+.spark-label{
+  position:absolute;right:0;top:0;
+  font-size:.52rem;font-family:var(--mono);color:var(--dim);
+}
+
+/* Bio row */
+.bio-row{display:flex;gap:5px;flex-wrap:wrap}
+.bio{
+  flex:1;background:var(--card2);border-radius:5px;
+  padding:5px 5px 4px;text-align:center;border:1px solid var(--border);
+}
+.bio-val{font-size:.9rem;font-weight:800;font-family:var(--mono);line-height:1}
+.bio-unit{font-size:.54rem;color:var(--dim);margin-top:2px;font-family:var(--sans)}
+.bio-sensor-badge{
+  display:none;width:100%;margin-top:4px;
+  font-size:.52rem;font-family:var(--mono);font-weight:700;letter-spacing:.04em;
+  padding:2px 7px;border-radius:3px;
+  background:rgba(0,229,255,.08);color:#00e5ff;
+  border:1px solid rgba(0,229,255,.30);
+  text-align:center;
+}
+
+/* Stage pips */
+.stage-row{display:flex;align-items:center;gap:5px;font-size:.6rem}
+.stage-lbl{color:var(--dim);width:58px;flex-shrink:0}
+.pips{display:flex;gap:3px;flex:1}
+.pip{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.06);transition:background .3s}
+.pip.p1{background:var(--amber)}
+.pip.p2{background:var(--red)}
+.pip.p3{background:var(--purple)}
+.stage-txt{font-family:var(--mono);font-size:.6rem;width:42px;text-align:right}
+
+/* ── RIGHT PANEL ── */
+.right-panel{
+  border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.panel-section{border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-section.grow{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.panel-head{
+  padding:7px 13px;font-size:.62rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.7px;color:var(--dim);
+  background:var(--card2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.panel-head-badge{
+  font-size:.58rem;padding:2px 7px;border-radius:3px;
+  background:rgba(255,23,68,.1);color:var(--red);border:1px solid rgba(255,23,68,.2);
+  font-family:var(--mono);
+}
+
+/* Safety concern banner (F2) */
+#safety-banner{display:none;align-items:center;gap:12px;background:#2a1a00;
+  border-bottom:2px solid #ffb300;color:#ffd479;padding:8px 20px;
+  font-size:.72rem;font-weight:700;letter-spacing:.03em;flex-shrink:0;
+  animation:sbpulse 1.6s ease-in-out infinite}
+#safety-banner.active{display:flex}
+#safety-banner .sb-icon{font-size:1rem;color:#ffb300}
+#safety-banner .sb-list{font-weight:600;color:#ffe9b8;font-family:var(--mono);font-size:.66rem}
+@keyframes sbpulse{0%,100%{border-bottom-color:#ffb300}50%{border-bottom-color:#7a5200}}
+
+/* Fleet map (Leaflet) */
+#fleet-map{width:100%;height:220px;background:#080f1c;border-radius:6px;z-index:0}
+.leaflet-container{background:#080f1c;font-family:var(--sans)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#161616;color:var(--text);border:1px solid #2a2a2a;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.leaflet-popup-content{font-size:.66rem;margin:8px 10px;line-height:1.5}
+.leaflet-bar a{background:#1a1a1a;color:var(--mid);border-color:#2a2a2a}
+.leaflet-bar a:hover{background:#252525}
+
+/* Route list */
+.route-item{
+  display:flex;align-items:center;gap:8px;padding:6px 13px;
+  border-bottom:1px solid rgba(33,38,45,.6);font-size:.67rem;
+}
+.route-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.route-info{flex:1;min-width:0}
+.route-name{font-weight:600;font-size:.68rem}
+.route-sub{color:var(--dim);font-size:.58rem;margin-top:1px}
+.route-right{text-align:right;flex-shrink:0}
+.route-pct{font-family:var(--mono);font-size:.65rem;font-weight:700;color:var(--cyan)}
+.route-eta{font-size:.58rem;color:var(--dim)}
+.route-prog-track{width:48px;height:3px;background:rgba(255,255,255,.06);border-radius:2px;margin-top:3px;overflow:hidden}
+.route-prog-fill{height:100%;border-radius:2px;background:var(--cyan);transition:width .5s}
+
+/* Incident timeline */
+.incident-scroll{flex:1;overflow-y:auto;padding:6px 0}
+.incident{
+  margin:4px 8px;padding:8px 10px;border-radius:7px;
+  background:var(--card2);border:1px solid var(--border);
+  animation:slideIn .25s ease;position:relative;overflow:hidden;
+}
+.incident.acked{opacity:.55;border-style:dashed}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.inc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:5px}
+.inc-badge{font-size:.58rem;font-weight:800;padding:2px 7px;border-radius:3px;font-family:var(--mono)}
+.inc-s1{background:rgba(255,179,0,.12);color:var(--amber);border:1px solid rgba(255,179,0,.25)}
+.inc-s2{background:rgba(255,23,68,.12); color:var(--red);  border:1px solid rgba(255,23,68,.25)}
+.inc-s3{background:rgba(224,64,251,.12);color:var(--purple);border:1px solid rgba(224,64,251,.25)}
+.inc-rider{font-weight:700;font-size:.7rem}
+.inc-desc{font-size:.62rem;color:var(--mid);margin-bottom:5px}
+.inc-meta{display:flex;justify-content:space-between;align-items:center;font-size:.6rem}
+.inc-ts{font-family:var(--mono);color:var(--dim)}
+.inc-right{display:flex;align-items:center;gap:6px}
+.ack-btn{
+  font-size:.58rem;padding:2px 7px;border-radius:3px;cursor:pointer;
+  border:1px solid var(--border2);background:transparent;color:var(--mid);
+  font-family:var(--sans);transition:all .2s;
+}
+.ack-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.ack-btn.acked-state{border-color:var(--dim);color:var(--dim);cursor:default}
+.inc-timer{font-family:var(--mono);font-size:.58rem;color:var(--dim)}
+.inc-dismiss-bar{
+  position:absolute;bottom:0;left:0;height:2px;
+  background:rgba(255,255,255,.12);transition:width .9s linear;
+}
+
+/* ── FOOTER ── */
+footer{
+  border-top:1px solid var(--border);padding:7px 20px;
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:.6rem;color:var(--dim);flex-shrink:0;
+}
+
+/* ── RISK GAUGE ── */
+.risk-gauge{
+  display:inline-flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:1.5rem;font-weight:800;line-height:1;
+}
+</style>
+<!-- Leaflet — real map tiles for live driver positions (F1) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Firebase config — gitignored, loaded as plain script so it works in all browsers
+     including Firefox (which blocks file:// ES module imports). Sets window._firebaseConfig. -->
+<script src="./firebase.config.js"></script>
+<style>
+/* ── MANAGER LOGIN GATE ── */
+#mgr-gate{position:fixed;inset:0;z-index:9999;background:rgba(9,9,11,.97);
+  display:flex;align-items:center;justify-content:center;padding:20px}
+#mgr-gate.hidden{display:none}
+.gate-card{width:390px;max-width:92vw;background:linear-gradient(180deg,#1d1d1d,#151515);
+  border:1px solid #2a2a2a;border-radius:14px;padding:30px 28px;box-shadow:0 24px 70px rgba(0,0,0,.7)}
+.gate-logo{font-size:1.25rem;font-weight:800;margin-bottom:20px;letter-spacing:.3px}
+.gate-logo span{color:var(--green)}
+.gate-title{font-size:1.15rem;font-weight:700;color:#fff;margin-bottom:6px}
+.gate-sub{font-size:.76rem;color:var(--mid);margin-bottom:14px;line-height:1.55}
+.gate-label{display:block;font-size:.6rem;color:var(--dim);text-transform:uppercase;
+  letter-spacing:.09em;margin:16px 0 6px}
+.gate-phone{display:flex;align-items:center;gap:9px;background:#242424;border:1px solid #3a3a3a;
+  border-radius:8px;padding:0 12px;transition:border-color .2s}
+.gate-phone:focus-within{border-color:var(--green)}
+.gate-cc{color:var(--mid);font-family:var(--mono);font-size:.85rem}
+.gate-phone input{flex:1;background:transparent;border:none;outline:none;color:#fff;
+  padding:11px 0;font-size:.95rem;font-family:var(--mono);letter-spacing:.05em}
+.gate-otp{width:100%;background:#242424;border:1px solid #3a3a3a;border-radius:8px;color:#fff;
+  padding:13px;font-size:1.5rem;text-align:center;letter-spacing:.5em;font-family:var(--mono);outline:none}
+.gate-otp:focus{border-color:var(--green)}
+.gate-btn{width:100%;margin-top:22px;background:var(--green);color:#000;border:none;border-radius:8px;
+  padding:13px;font-size:.9rem;font-weight:800;cursor:pointer;letter-spacing:.03em;transition:opacity .2s}
+.gate-btn:disabled{opacity:.5;cursor:default}
+.gate-link{display:block;width:100%;margin-top:14px;background:transparent;border:none;
+  color:var(--mid);font-size:.72rem;cursor:pointer}
+.gate-error{color:var(--red);font-size:.74rem;margin-top:14px;min-height:1em;text-align:center}
+.gate-note{font-size:.66rem;color:var(--dim);margin-top:18px;line-height:1.5;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- ══════════ MANAGER LOGIN GATE ══════════ -->
+<div id="mgr-gate">
+  <div class="gate-card">
+    <div class="gate-logo">△ Smart<span>Helm</span></div>
+    <div class="gate-title">Fleet Manager Login</div>
+    <div class="gate-sub">Sign in with your phone to open your fleet dashboard. You'll get a 6-character code to share with your riders.</div>
+
+    <!-- Step 1: phone + fleet emergency contact -->
+    <div id="gate-step1">
+      <label class="gate-label">Your phone number</label>
+      <div class="gate-phone"><span class="gate-cc">+91</span>
+        <input id="gate-phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10-digit mobile"></div>
+      <label class="gate-label">Fleet emergency contact</label>
+      <div class="gate-phone"><span class="gate-cc">+91</span>
+        <input id="gate-emergency" type="tel" inputmode="numeric" maxlength="10" placeholder="alerted with you on drowsiness"></div>
+      <button id="gate-send" class="gate-btn">Send OTP</button>
+    </div>
+
+    <!-- Step 2: OTP -->
+    <div id="gate-step2" style="display:none">
+      <label class="gate-label">Enter the 6-digit code sent to your phone</label>
+      <input id="gate-otp" type="tel" inputmode="numeric" maxlength="6" class="gate-otp" placeholder="••••••">
+      <button id="gate-verify" class="gate-btn">Verify &amp; Enter</button>
+      <button id="gate-back" class="gate-link">← change number</button>
+    </div>
+
+    <div id="gate-error" class="gate-error"></div>
+    <div id="recaptcha-container"></div>
+    <div class="gate-note">Riders never use this dashboard — they only enter your fleet code in the app.</div>
+  </div>
+</div>
+
+<!-- ══════════ HEADER ══════════ -->
+<header>
+  <div class="logo">
+    <div class="logo-mark"></div>
+    <div>
+      <div class="logo-text">Smart<span>Helm</span></div>
+      <div class="logo-sub">Fleet Operations Center</div>
+    </div>
+  </div>
+  <div class="header-mid">
+    <strong>Unisys Innovation Program 2026 — Year 17</strong><br>
+    AI Drowsiness Detection · Phase 2 Demo · Bangalore Delivery Fleet
+  </div>
+  <div class="header-right">
+    <div id="fb-pill" class="live-pill" style="background:rgba(255,165,0,.08);border-color:rgba(255,165,0,.3);color:var(--amber)">
+      <span id="fb-dot" class="live-dot" style="background:var(--amber)"></span>
+      <span id="fb-label">CONNECTING</span>
+    </div>
+    <div class="live-pill"><span class="live-dot"></span>LIVE</div>
+    <span class="hdr-time" id="hdr-time">--:--:--</span>
+    <button class="export-btn" onclick="exportReport()">
+      ↓ Export Report
+    </button>
+  </div>
+</header>
+
+<!-- ══════════ FLEET MANAGER BAR ══════════ -->
+<div id="mgr-bar" style="background:#1a1a1a;border-bottom:1px solid #2a2a2a;padding:6px 20px;display:flex;align-items:center;gap:12px;font-size:.68rem;flex-shrink:0">
+  <span style="color:var(--dim);font-weight:600;letter-spacing:.04em">FLEET CODE</span>
+  <span id="mgr-code-box" style="background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.3);border-radius:5px;padding:3px 12px;font-family:var(--mono);font-size:.8rem;font-weight:800;color:#00e5ff;letter-spacing:.18em">------</span>
+  <span id="mgr-code-hint" style="color:var(--dim);font-size:.6rem">← share with your riders</span>
+  <span style="flex:1"></span>
+  <span style="color:var(--dim)">Manager</span>
+  <span id="mgr-phone-lbl" style="font-family:var(--mono);color:var(--text)">—</span>
+  <span style="color:var(--dim)">Emergency</span>
+  <span id="mgr-emergency-lbl" style="font-family:var(--mono);color:var(--text)">—</span>
+  <button id="mgr-logout" onclick="window._managerLogout()" style="background:transparent;border:1px solid #3a3a3a;color:var(--mid);padding:3px 12px;border-radius:5px;font-size:.62rem;cursor:pointer">Logout</button>
+</div>
+
+<!-- ══════════ STATS BAR ══════════ -->
+<div class="stats-bar">
+  <div class="sbox" style="--accent:var(--cyan)">
+    <div class="sbox-val c-cyan" id="sb-active">6</div>
+    <div class="sbox-lbl">Active Riders</div>
+  </div>
+  <div class="sbox" style="--accent:var(--green)">
+    <div class="sbox-val c-green" id="sb-normal">4</div>
+    <div class="sbox-lbl">Normal</div>
+  </div>
+  <div class="sbox" style="--accent:var(--amber)">
+    <div class="sbox-val c-amber" id="sb-warn">1</div>
+    <div class="sbox-lbl">Warning</div>
+  </div>
+  <div class="sbox" style="--accent:var(--red)">
+    <div class="sbox-val c-red" id="sb-crit">1</div>
+    <div class="sbox-lbl">Critical</div>
+  </div>
+  <div class="sbox" style="--accent:var(--cyan)">
+    <div class="sbox-val c-cyan" id="sb-ear">0.000</div>
+    <div class="sbox-lbl">Avg Fleet EAR</div>
+  </div>
+  <div class="sbox" style="--accent:var(--amber)">
+    <div class="sbox-val c-amber" id="sb-alerts">0</div>
+    <div class="sbox-lbl">Alerts Today</div>
+  </div>
+  <div class="sbox" style="--accent:var(--red)">
+    <div class="sbox-val" id="sb-risk" style="color:var(--green)">0</div>
+    <div class="sbox-lbl">Fleet Risk Score</div>
+  </div>
+</div>
+
+<!-- ══════════ SAFETY CONCERN BANNER (F2) ══════════ -->
+<div id="safety-banner"></div>
+
+<!-- ══════════ MAIN ══════════ -->
+<div class="main">
+  <div class="rider-grid" id="rider-grid"></div>
+
+  <div class="right-panel">
+    <!-- Incident Timeline -->
+    <div class="panel-section grow" style="min-height:220px;max-height:320px">
+      <div class="panel-head">
+        ⚠ Incident Timeline
+        <span class="panel-head-badge" id="inc-badge">0 active</span>
+      </div>
+      <div class="incident-scroll" id="incident-scroll">
+        <div style="padding:20px;text-align:center;color:var(--dim);font-size:.68rem">
+          No incidents — all riders nominal
+        </div>
+      </div>
+    </div>
+
+    <!-- Fleet Map -->
+    <div class="panel-section">
+      <div class="panel-head">
+        ⬡ Live Driver Positions
+        <span style="color:var(--cyan);font-size:.56rem">LIVE GPS · OSM</span>
+      </div>
+      <div id="fleet-map"></div>
+    </div>
+
+    <!-- Route List -->
+    <div class="panel-section" style="overflow-y:auto;max-height:220px">
+      <div class="panel-head">⟶ Active Routes</div>
+      <div id="route-list"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span>SmartHelm v2.0 · MediaPipe FaceLandmarker + EAR + PERCLOS</span>
+  <span>Stage 1: 2s beep · Stage 2: 4s alarm · Stage 3: 6s SMS via Twilio</span>
+  <span>Unisys Innovation Program 2026</span>
+</footer>
+
+<script>
+"use strict";
+
+// ════════════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════════════════════════
+const STAGE_S1 = 2.0, STAGE_S2 = 4.0, STAGE_S3 = 6.0;
+const PERCLOS_ALERT = 30;
+const BLINK_DURATION = 150;       // ms — realistic human blink
+const DISMISS_DURATION = 35000;   // ms — auto-dismiss incident after 35s
+
+const HOTSPOTS = [
+  { x:.72, y:.35, r:.09, intensity:.82, label:"ORR Junction" },
+  { x:.30, y:.65, r:.08, intensity:.65, label:"NICE Road" },
+  { x:.48, y:.11, r:.07, intensity:.72, label:"Airport Hwy" },
+  { x:.62, y:.83, r:.08, intensity:.55, label:"E-City Flyover" },
+  { x:.18, y:.44, r:.07, intensity:.45, label:"Tumkur Rd" },
+  { x:.55, y:.52, r:.06, intensity:.38, label:"Silk Board" },
+];
+
+// ════════════════════════════════════════════════════════════════════
+//  RIDER DEFINITIONS
+// ════════════════════════════════════════════════════════════════════
+const DEFS = [
+  { id:"SH-001", name:"Arjun Kumar",  route:"MG Road → Silk Board",        vehicle:"KA-01-AB-1234", shift:"06:00–14:00", baseHR:72, baseSpo2:98.2, risk:"low",    color:"#00b4d8", routeMin:42 },
+  { id:"SH-002", name:"Priya Sharma", route:"Electronic City → KR Puram",  vehicle:"KA-05-MN-5678", shift:"07:00–15:00", baseHR:68, baseSpo2:97.5, risk:"medium", color:"#ffb300", routeMin:58 },
+  { id:"SH-003", name:"Ravi Menon",   route:"Hebbal → Kempegowda Airport", vehicle:"KA-02-CD-9012", shift:"05:00–13:00", baseHR:76, baseSpo2:96.8, risk:"high",   color:"#ff1744", routeMin:65 },
+  { id:"SH-004", name:"Deepa Nair",   route:"Whitefield → Koramangala",    vehicle:"KA-03-GH-3456", shift:"08:00–16:00", baseHR:64, baseSpo2:99.0, risk:"low",    color:"#00ff88", routeMin:38 },
+  { id:"SH-005", name:"Kiran Bhat",   route:"Jayanagar → Yeshwanthpur",    vehicle:"KA-04-PQ-7890", shift:"06:30–14:30", baseHR:71, baseSpo2:97.9, risk:"medium", color:"#b388ff", routeMin:50 },
+  { id:"SH-006", name:"Suresh Reddy", route:"Banashankari → Marathahalli", vehicle:"KA-01-RS-2345", shift:"09:00–17:00", baseHR:78, baseSpo2:97.4, risk:"low",    color:"#00e5ff", routeMin:55 },
+];
+
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function ts() { return new Date().toTimeString().slice(0,8); }
+
+// ════════════════════════════════════════════════════════════════════
+//  SIMULATION STATE
+// ════════════════════════════════════════════════════════════════════
+const NOW = Date.now();
+
+const RIDERS = DEFS.map((d, i) => {
+  const startTime = NOW - rnd(600000, d.risk === "high" ? 28800000 : 14400000);
+  return {
+    ...d,
+    // Eye
+    eyeState: "OPEN",
+    eyeOpenness: 1.0, eyeTarget: 1.0,
+    ear: rnd(0.28, 0.34),
+
+    // Blink engine
+    isBlinking: false,
+    blinkEnd: 0,
+    nextBlink: NOW + rnd(3000, 6000),
+
+    // Microsleep engine
+    isMicrosleep: false,
+    microsleepEnd: 0,
+    nextMicrosleep: NOW + rnd(d.risk === "high" ? 4000 : 8000, d.risk === "high" ? 10000 : 25000),
+
+    // Drowsiness metrics
+    perclos: i === 2 ? rnd(35, 42) : rnd(1, 8),    // Ravi starts high
+    perclosWindow: new Array(600).fill(0),            // 600 samples @ 10Hz = 60s
+    perclosHistory: new Array(60).fill(i === 2 ? 38 : 3), // per-second history
+    lastPerclosPush: NOW,
+    continuousClosure: 0.0,
+    closureStart: null,
+
+    // Alert state
+    alertStage: i === 2 ? 2 : 0,
+    alertActive: i === 2,
+    prevStage: i === 2 ? 2 : 0,
+    alertCount: i === 2 ? 2 : 0,
+    totalAlertsToday: i === 2 ? 3 : 0,
+
+    // Biometrics — realistic drift
+    bpm: d.baseHR + rnd(-3, 3),
+    bpmTarget: d.baseHR + rnd(-4, 6),
+    bpmNextChange: NOW + rnd(2000, 4000),
+    spo2: d.baseSpo2 + rnd(-0.3, 0.3),
+
+    // Face lock
+    faceLock: rnd(88, 96),
+
+    // Route progress
+    routeProgress: rnd(5, 60),
+    routeProgressRate: rnd(0.003, 0.006), // % per 100ms tick
+
+    // Map position
+    mapX: rnd(0.1, 0.9), mapY: rnd(0.1, 0.9),
+    mapDX: (Math.random() < .5 ? 1 : -1) * rnd(.0007, .0016),
+    mapDY: (Math.random() < .5 ? 1 : -1) * rnd(.0004, .0011),
+
+    startTime,
+  };
+});
+
+// Seed Ravi in microsleep for demo
+RIDERS[2].isMicrosleep = true;
+RIDERS[2].microsleepEnd = NOW + 3500;
+RIDERS[2].continuousClosure = 2.3;
+RIDERS[2].closureStart = NOW - 2300;
+
+// ════════════════════════════════════════════════════════════════════
+//  INCIDENT MANAGEMENT
+// ════════════════════════════════════════════════════════════════════
+let INCIDENTS = [];
+let incidentIdCounter = 0;
+let totalAlertsToday = 3; // seed with Ravi's existing alerts
+
+function pushIncident(rider, stage, reason, triggerVal) {
+  const id = ++incidentIdCounter;
+  INCIDENTS.unshift({
+    id, riderId: RIDERS.indexOf(rider),
+    riderName: rider.name, stage, reason, triggerVal,
+    timestamp: Date.now(),
+    acknowledged: false,
+    dismissed: false,
+    dismissAt: Date.now() + DISMISS_DURATION,
+  });
+  totalAlertsToday++;
+  if (INCIDENTS.length > 15) INCIDENTS = INCIDENTS.slice(0, 15);
+}
+
+function acknowledgeIncident(id) {
+  const inc = INCIDENTS.find(x => x.id === id);
+  if (inc) inc.acknowledged = true;
+}
+
+// Seed initial incident for Ravi
+INCIDENTS.push({
+  id: ++incidentIdCounter,
+  riderId: 2, riderName: "Ravi Menon", stage: 2,
+  reason: "Continuous Eye Closure", triggerVal: "4.1s closure / PERCLOS 38%",
+  timestamp: Date.now() - 12000,
+  acknowledged: false, dismissed: false,
+  dismissAt: Date.now() + 20000,
+});
+
+// ════════════════════════════════════════════════════════════════════
+//  BUILD DOM
+// ════════════════════════════════════════════════════════════════════
+function buildDOM() {
+  const grid = document.getElementById("rider-grid");
+  const routeList = document.getElementById("route-list");
+
+  RIDERS.forEach((r, i) => {
+    grid.innerHTML += `
+<div class="rider-card" id="card-${i}">
+  <div class="card-head">
+    <div>
+      <div class="rider-name">${r.name}</div>
+      <div class="rider-sub">${r.id} · ${r.vehicle}</div>
+    </div>
+    <div class="head-right">
+      <div class="fatigue-dot" id="fatigue-${i}" title="Shift fatigue"></div>
+      <div class="status-badge b-normal" id="badge-${i}">NORMAL</div>
+    </div>
+  </div>
+  <div class="cam-wrap">
+    <canvas id="cam-${i}" width="280" height="140"></canvas>
+    <img id="snap-${i}" style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:none;z-index:5" alt="">
+    <div class="cam-tl">CAM-${i+1} · LIVE · EAR <span id="live-badge-${i}" style="display:none;margin-left:5px;font-size:.55rem;font-weight:800;padding:1px 6px;border-radius:3px;background:rgba(0,229,255,.2);color:#00e5ff;border:1px solid rgba(0,229,255,.45)">● APP</span></div>
+    <div class="cam-tr"><span class="rec-dot"></span><span id="camts-${i}">--:--:--</span></div>
+    <div class="cam-bl">
+      <span class="eye-tag et-open" id="eyelbl-${i}">OPEN</span>
+      <span class="confidence-tag" id="conflbl-${i}">94%</span>
+    </div>
+    <div class="cam-br" id="earlbl-${i}" style="font-family:var(--mono);font-size:.56rem;color:rgba(255,255,255,.5)">EAR 0.300</div>
+  </div>
+  <div class="card-body">
+
+    <!-- Face lock -->
+    <div class="facelock-row">
+      <span style="color:var(--dim)">Face Lock</span>
+      <div class="facelock-bar"><div class="facelock-fill" id="flock-bar-${i}" style="width:90%"></div></div>
+      <span class="facelock-val" id="flock-val-${i}" style="color:var(--cyan)">90%</span>
+    </div>
+
+    <!-- PERCLOS -->
+    <div class="meter-row">
+      <span class="meter-label">PERCLOS</span>
+      <div class="meter-track" id="ptrack-${i}"
+           data-tip="PERCLOS = % of frames where eyes were closed in the last 60s. Alert threshold: 30%. Normal blinking ≈ 3–5%.">
+        <div class="meter-fill mf-green" id="pbar-${i}" style="width:0%"></div>
+      </div>
+      <span class="meter-val" id="pval-${i}">0.0%</span>
+    </div>
+
+    <!-- Sparkline -->
+    <div class="sparkline-wrap">
+      <svg class="sparkline" id="spark-${i}" viewBox="0 0 120 24" preserveAspectRatio="none">
+        <line x1="0" y1="${24 - 0.30*24}" x2="120" y2="${24 - 0.30*24}" class="spark-threshold"/>
+        <polyline id="spark-area-${i}" class="spark-area" points=""/>
+        <polyline id="spark-line-${i}" class="spark-line" points=""/>
+      </svg>
+      <span class="spark-label">60s ←</span>
+    </div>
+
+    <!-- Closure -->
+    <div class="meter-row">
+      <span class="meter-label">Closure</span>
+      <div class="meter-track">
+        <div class="meter-fill mf-green" id="cbar-${i}" style="width:0%"></div>
+      </div>
+      <span class="meter-val" id="cval-${i}">0.0s</span>
+    </div>
+
+    <!-- Biometrics -->
+    <div class="bio-row">
+      <div class="bio">
+        <div class="bio-val" id="bpm-${i}" style="color:var(--red)">--</div>
+        <div class="bio-unit">BPM ♥</div>
+      </div>
+      <div class="bio">
+        <div class="bio-val" id="spo2-${i}" style="color:var(--cyan)">--</div>
+        <div class="bio-unit">SpO₂ %</div>
+      </div>
+      <div class="bio">
+        <div class="bio-val" id="upt-${i}" style="color:var(--mid)">--</div>
+        <div class="bio-unit">On Duty</div>
+      </div>
+      <div class="bio-sensor-badge" id="biosensor-${i}">● MAX30102 SENSOR</div>
+    </div>
+
+    <!-- Stage pips -->
+    <div class="stage-row">
+      <span class="stage-lbl">Alert Stage</span>
+      <div class="pips">
+        <div class="pip" id="pip1-${i}"></div>
+        <div class="pip" id="pip2-${i}"></div>
+        <div class="pip" id="pip3-${i}"></div>
+      </div>
+      <span class="stage-txt" id="stgtxt-${i}" style="color:var(--dim)">—</span>
+    </div>
+
+  </div>
+</div>`;
+
+    // Route rows
+    routeList.innerHTML += `
+<div class="route-item">
+  <div class="route-dot" style="background:${r.color}"></div>
+  <div class="route-info">
+    <div class="route-name">${r.name}</div>
+    <div class="route-sub">${r.route}</div>
+  </div>
+  <div class="route-right">
+    <div class="route-pct" id="rpct-${i}">0%</div>
+    <div class="route-eta" id="reta-${i}">-- min</div>
+    <div class="route-prog-track"><div class="route-prog-fill" id="rpbar-${i}" style="width:0%"></div></div>
+  </div>
+</div>`;
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  CANVAS — FACE CAM FEED
+// ════════════════════════════════════════════════════════════════════
+function eyeLMs(ex, ey, ew, eh) {
+  const h = Math.max(eh, 1.5);
+  return [
+    [ex - ew,      ey       ],
+    [ex - ew*.38,  ey - h*.95],
+    [ex + ew*.38,  ey - h*.95],
+    [ex + ew,      ey       ],
+    [ex + ew*.38,  ey + h*.95],
+    [ex - ew*.38,  ey + h*.95],
+  ];
+}
+
+// ── Live feed: real camera frame + MediaPipe inference overlay on canvas ────
+function drawLiveFeed(r, cv) {
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+
+  ctx.fillStyle = "#050505";
+  ctx.fillRect(0, 0, W, H);
+
+  const img = r._snapImg;
+  if (!img || !img.complete || !img.naturalWidth) return;
+
+  // Scale snapshot to fit canvas (contain) — eye strip must not be cropped
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const scale = Math.min(W / iw, H / ih);
+  const dw = iw * scale, dh = ih * scale;
+  const ox = (W - dw) / 2, oy = (H - dh) / 2;
+  ctx.drawImage(img, ox, oy, dw, dh);
+
+  // ── Eye landmark overlay ─────────────────────────────────────────
+  if (r._eyeLandmarks && r.faceDetected) {
+    const eyeColor = r.eyeState === 'OPEN' ? '#22cc44' : r.eyeState === 'CLOSED' ? '#ff4444' : '#808080';
+    const [lr, lg, lb] = r.eyeState === 'OPEN' ? [34,204,68] : r.eyeState === 'CLOSED' ? [255,68,68] : [128,128,128];
+
+    [r._eyeLandmarks.left, r._eyeLandmarks.right].forEach(pts => {
+      if (!pts?.length) return;
+      ctx.beginPath();
+      pts.forEach(([nx, ny], j) => {
+        const px = ox + nx * dw, py = oy + ny * dh;
+        j ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+      });
+      ctx.closePath();
+      ctx.strokeStyle = `rgba(${lr},${lg},${lb},.85)`;
+      ctx.lineWidth = 1.3; ctx.stroke();
+      pts.forEach(([nx, ny]) => {
+        ctx.beginPath();
+        ctx.arc(ox + nx*dw, oy + ny*dh, 2.2, 0, Math.PI*2);
+        ctx.fillStyle = eyeColor; ctx.globalAlpha = .9; ctx.fill(); ctx.globalAlpha = 1;
+      });
+    });
+
+    // EAR vertical measurement lines (yellow)
+    ctx.setLineDash([2,3]); ctx.strokeStyle = 'rgba(255,220,0,.65)'; ctx.lineWidth = .9;
+    [r._eyeLandmarks.left, r._eyeLandmarks.right].forEach(pts => {
+      if (pts?.length >= 6) {
+        [[1,5],[2,4]].forEach(([a,b]) => {
+          ctx.beginPath();
+          ctx.moveTo(ox+pts[a][0]*dw, oy+pts[a][1]*dh);
+          ctx.lineTo(ox+pts[b][0]*dw, oy+pts[b][1]*dh);
+          ctx.stroke();
+        });
+      }
+    });
+    ctx.setLineDash([]);
+  }
+
+  // ── Bottom stats bar ─────────────────────────────────────────────
+  ctx.fillStyle = 'rgba(0,0,0,.6)';
+  ctx.fillRect(0, H-18, W, 18);
+  const pc = r.perclos || 0;
+  ctx.font = `9px 'JetBrains Mono',monospace`;
+  ctx.fillStyle = pc >= 30 ? '#ff4444' : pc >= 15 ? '#ffa500' : '#22cc44';
+  ctx.textAlign = 'left';
+  ctx.fillText(`PERCLOS ${pc.toFixed(1)}%  EAR ${(r.ear||0).toFixed(3)}`, 5, H-5);
+
+  // ── Scanline ─────────────────────────────────────────────────────
+  const sy = (Date.now()/16) % H;
+  const sg = ctx.createLinearGradient(0,sy-20,0,sy+20);
+  sg.addColorStop(0,'rgba(34,204,68,0)'); sg.addColorStop(.5,'rgba(34,204,68,.04)'); sg.addColorStop(1,'rgba(34,204,68,0)');
+  ctx.fillStyle = sg; ctx.fillRect(0,sy-20,W,40);
+
+  // ── Corner brackets ───────────────────────────────────────────────
+  const bl = 13; ctx.strokeStyle = 'rgba(34,204,68,.55)'; ctx.lineWidth = 1.5;
+  [[0,0,1,1],[W,0,-1,1],[0,H,1,-1],[W,H,-1,-1]].forEach(([x,y,dx,dy]) => {
+    ctx.beginPath(); ctx.moveTo(x+dx*bl,y); ctx.lineTo(x,y); ctx.lineTo(x,y+dy*bl); ctx.stroke();
+  });
+
+  // Alert flash
+  if (r.alertActive) {
+    const f = Math.sin(Date.now()/80) > 0 ? .07 : 0;
+    ctx.fillStyle = `rgba(255,68,68,${f})`; ctx.fillRect(0,0,W,H);
+  }
+}
+
+function drawCam(r, i) {
+  const cv = document.getElementById(`cam-${i}`);
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+
+  // ── Live feed overrides simulation ───────────────────────────────
+  if (r.isLive) { drawLiveFeed(r, cv); return; }
+
+  // ── Background ──
+  ctx.fillStyle = "#080808";
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Face oval ──
+  const cx = W * .50, cy = H * .50;
+  const fw = W * .30, fh = H * .55;
+  const fg = ctx.createRadialGradient(cx - fw*.12, cy - fh*.18, 0, cx, cy, fw * 1.1);
+  fg.addColorStop(0,   "#d09060");
+  fg.addColorStop(.65, "#a06840");
+  fg.addColorStop(1,   "#5a3018");
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, fw, fh, 0, 0, Math.PI*2);
+  ctx.fillStyle = fg;
+  ctx.fill();
+
+  // ── Hair ──
+  ctx.beginPath();
+  ctx.ellipse(cx, cy - fh*.76, fw*.92, fh*.38, 0, Math.PI, Math.PI*2);
+  ctx.fillStyle = "#1a0e06";
+  ctx.fill();
+
+  // ── Helmet rim ──
+  ctx.beginPath();
+  ctx.ellipse(cx, cy - fh*.76, fw*1.12, fh*.52, 0, Math.PI, Math.PI*2);
+  ctx.strokeStyle = "rgba(70,80,100,.6)";
+  ctx.lineWidth = 3.5;
+  ctx.stroke();
+
+  // ── Eyes ──
+  const ey  = cy - fh * .12;
+  const eLX = cx - fw * .30;
+  const eRX = cx + fw * .30;
+  const ew  = fw * .19;
+  const eh  = fh * .09 * r.eyeOpenness;
+
+  function drawEye(ex) {
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, ew, Math.max(eh, 1.2), 0, 0, Math.PI*2);
+    ctx.fillStyle = r.eyeOpenness > .12 ? "#eeeeee" : "#5a3018";
+    ctx.fill();
+    if (r.eyeOpenness > .18) {
+      const irW = ew * .52, irH = Math.min(eh * .9, ew * .5);
+      ctx.beginPath(); ctx.ellipse(ex, ey, irW, irH, 0, 0, Math.PI*2);
+      ctx.fillStyle = "#2e1808"; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(ex, ey, irW*.42, irH*.85, 0, 0, Math.PI*2);
+      ctx.fillStyle = "#040404"; ctx.fill();
+      ctx.beginPath(); ctx.arc(ex - irW*.22, ey - irH*.28, 1.4, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(255,255,255,.55)"; ctx.fill();
+    }
+    if (r.eyeOpenness < .45) {
+      const a = (1 - r.eyeOpenness / .45) * .75;
+      ctx.beginPath(); ctx.ellipse(ex, ey, ew+1, ew*.28, 0, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(168,105,55,${a})`; ctx.fill();
+    }
+    // Lid shadow
+    ctx.beginPath(); ctx.ellipse(ex, ey - eh*.45, ew+1, ew*.22, 0, 0, Math.PI*2);
+    ctx.fillStyle = "rgba(60,30,15,.4)"; ctx.fill();
+  }
+  drawEye(eLX); drawEye(eRX);
+
+  // Eyebrows
+  ctx.strokeStyle = "#201008"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(eLX - ew, ey - eh - fh*.09); ctx.lineTo(eLX + ew*.8, ey - eh - fh*.07); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(eRX - ew*.8, ey - eh - fh*.07); ctx.lineTo(eRX + ew, ey - eh - fh*.09); ctx.stroke();
+
+  // ── MediaPipe landmarks ──
+  const lc = r.eyeState === "OPEN" ? "#00ff88" : r.eyeState === "CLOSED" ? "#ff3333" : "#888888";
+  const lmL = eyeLMs(eLX, ey, ew, eh);
+  const lmR = eyeLMs(eRX, ey, ew, eh);
+  const rgba = r.eyeState === "OPEN" ? "0,255,136" : r.eyeState === "CLOSED" ? "255,51,51" : "136,136,136";
+
+  [lmL, lmR].forEach(pts => {
+    ctx.beginPath();
+    pts.forEach((p, j) => j ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+    ctx.closePath();
+    ctx.strokeStyle = `rgba(${rgba},.7)`; ctx.lineWidth = .9; ctx.stroke();
+    pts.forEach(p => {
+      ctx.beginPath(); ctx.arc(p[0], p[1], 1.5, 0, Math.PI*2);
+      ctx.fillStyle = lc; ctx.globalAlpha = .88; ctx.fill(); ctx.globalAlpha = 1;
+    });
+  });
+
+  // EAR measurement lines
+  ctx.setLineDash([2,3]);
+  ctx.strokeStyle = "rgba(255,220,0,.5)"; ctx.lineWidth = .8;
+  [lmL, lmR].forEach(pts => {
+    ctx.beginPath(); ctx.moveTo(pts[1][0], pts[1][1]); ctx.lineTo(pts[5][0], pts[5][1]); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pts[2][0], pts[2][1]); ctx.lineTo(pts[4][0], pts[4][1]); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // ── Scanline ──
+  const sy = ((Date.now() / 16) % H);
+  const sg = ctx.createLinearGradient(0, sy-20, 0, sy+20);
+  sg.addColorStop(0,"rgba(0,229,255,0)"); sg.addColorStop(.5,"rgba(0,229,255,.04)"); sg.addColorStop(1,"rgba(0,229,255,0)");
+  ctx.fillStyle = sg; ctx.fillRect(0, sy-20, W, 40);
+
+  // ── Corner brackets ──
+  const bl = 13;
+  ctx.strokeStyle = "rgba(0,229,255,.5)"; ctx.lineWidth = 1.5;
+  [[0,0,1,1],[W,0,-1,1],[0,H,1,-1],[W,H,-1,-1]].forEach(([x,y,dx,dy]) => {
+    ctx.beginPath();
+    ctx.moveTo(x+dx*bl,y); ctx.lineTo(x,y); ctx.lineTo(x,y+dy*bl);
+    ctx.stroke();
+  });
+
+  // ── Vignette ──
+  const vig = ctx.createRadialGradient(cx, cy, H*.22, cx, cy, H*.78);
+  vig.addColorStop(0,"rgba(0,0,0,0)"); vig.addColorStop(1,"rgba(0,0,0,.52)");
+  ctx.fillStyle = vig; ctx.fillRect(0,0,W,H);
+
+  // ── Alert overlay (flicker on Stage 2+) ──
+  if (r.alertStage >= 2) {
+    const flicker = Math.sin(Date.now() / 80) > 0 ? .06 : 0;
+    ctx.fillStyle = `rgba(255,23,68,${flicker})`;
+    ctx.fillRect(0,0,W,H);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  FLEET MAP
+// ════════════════════════════════════════════════════════════════════
+const ROADS = [
+  [[.05,.50],[.95,.50]],
+  [[.50,.05],[.50,.95]],
+  [[.20,.10],[.80,.10],[.92,.30],[.92,.70],[.80,.90],[.20,.90],[.08,.70],[.08,.30],[.20,.10]],
+  [[.30,.30],[.70,.30],[.70,.70],[.30,.70],[.30,.30]],
+  [[.30,.50],[.70,.50]],
+  [[.50,.30],[.50,.70]],
+  [[.20,.50],[.30,.30]],
+  [[.80,.50],[.70,.70]],
+];
+
+// ── Leaflet live map (F1) — real OSM tiles, real driver GPS from Firestore ──
+let _fleetMap = null, _mapMarkers = {}, _mapFitted = false;
+const _BLR = [12.9716, 77.5946];
+const _SIM_BBOX = { latTop: 13.04, latBot: 12.90, lngL: 77.54, lngR: 77.70 };
+
+function _initFleetMap() {
+  if (_fleetMap || typeof L === "undefined") return;
+  const el = document.getElementById("fleet-map");
+  if (!el) return;
+  _fleetMap = L.map(el, { zoomControl: false, attributionControl: false }).setView(_BLR, 12);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    { maxZoom: 19, subdomains: "abcd" }).addTo(_fleetMap);
+  L.control.zoom({ position: "bottomright" }).addTo(_fleetMap);
+  setTimeout(() => { if (_fleetMap) _fleetMap.invalidateSize(); }, 250);
+}
+
+// Live riders use their real GPS (r.lat/r.lng from Firestore `location`);
+// simulated riders are spread deterministically across a Bangalore bbox.
+function _riderLatLng(r, slot) {
+  if (typeof r.lat === "number" && typeof r.lng === "number") return [r.lat, r.lng];
+  const y = (typeof r.mapY === "number") ? r.mapY : ((slot * 0.17 + 0.2) % 0.8 + 0.1);
+  const x = (typeof r.mapX === "number") ? r.mapX : ((slot * 0.23 + 0.15) % 0.8 + 0.1);
+  return [_SIM_BBOX.latTop - y * (_SIM_BBOX.latTop - _SIM_BBOX.latBot),
+          _SIM_BBOX.lngL  + x * (_SIM_BBOX.lngR  - _SIM_BBOX.lngL)];
+}
+
+function drawMap() {
+  _initFleetMap();
+  if (!_fleetMap) return;
+  const liveLL = [];
+  RIDERS.forEach((r, slot) => {
+    const ll = _riderLatLng(r, slot);
+    const alert = !!r.alertActive;
+    const stroke = alert
+      ? (r.alertStage >= 3 ? "#e040fb" : r.alertStage >= 2 ? "#ff1744" : "#ffb300")
+      : (r.isLive ? "#00e5ff" : "rgba(255,255,255,.45)");
+    let m = _mapMarkers[slot];
+    if (!m) {
+      m = L.circleMarker(ll, { radius: 7, weight: 2 }).addTo(_fleetMap);
+      m.bindPopup("");
+      m.on("click", () => {
+        const c = document.getElementById("card-" + slot);
+        if (c) c.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      _mapMarkers[slot] = m;
+    } else {
+      m.setLatLng(ll);
+    }
+    m.setStyle({
+      color: stroke, fillColor: r.color || "#888", fillOpacity: 0.9,
+      radius: (r.isLive ? 8 : 6) + (alert ? 3 : 0)
+    });
+    const spd = (typeof r.speedKmph === "number") ? Math.round(r.speedKmph) + " km/h" : "—";
+    m.setPopupContent(
+      "<b>" + (r.name || "Rider") + "</b>" + (r.isLive ? " · &#9679; LIVE" : "") +
+      "<br>" + (r.eyeState || "—") + " &middot; PERCLOS " + Math.round(r.perclos || 0) +
+      "% &middot; " + spd
+    );
+    if (r.isLive) liveLL.push(ll);
+  });
+  // Zoom to the live rider(s) once a real GPS fix arrives
+  if (!_mapFitted && liveLL.length) {
+    _mapFitted = true;
+    if (liveLL.length === 1) _fleetMap.setView(liveLL[0], 15);
+    else _fleetMap.fitBounds(liveLL, { padding: [30, 30] });
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  INCIDENT TIMELINE — incremental DOM (no full innerHTML rebuild)
+// ════════════════════════════════════════════════════════════════════
+const _incDOM = new Map();  // id → { el, timerEl, barEl, elapsedEl, ackBtn }
+let _incEmptyEl = null;
+
+function _makeIncidentEl(inc) {
+  const stageLbl = inc.stage === 1 ? "S1 BEEP" : inc.stage === 2 ? "S2 ALARM" : "S3 SMS";
+  const badgeCls = "inc-s" + inc.stage;
+  const timeStr  = new Date(inc.timestamp).toTimeString().slice(0,8);
+
+  const el = document.createElement("div");
+  el.className = "incident";
+  el.dataset.incId = inc.id;
+  el.innerHTML =
+    '<div class="inc-head">' +
+      '<div>' +
+        '<span class="inc-badge ' + badgeCls + '">' + stageLbl + '</span>' +
+        '<span class="inc-rider" style="margin-left:6px">' + inc.riderName + '</span>' +
+      '</div>' +
+      '<button class="ack-btn">Acknowledge</button>' +
+    '</div>' +
+    '<div class="inc-desc">' + inc.reason + ' — ' + inc.triggerVal + '</div>' +
+    '<div class="inc-meta">' +
+      '<span class="inc-ts">' + timeStr + ' · <span class="inc-elapsed">0s ago</span></span>' +
+      '<span class="inc-timer">auto-dismiss 35s</span>' +
+    '</div>' +
+    '<div class="inc-dismiss-bar" style="width:100%"></div>';
+
+  const refs = {
+    el,
+    timerEl:   el.querySelector(".inc-timer"),
+    barEl:     el.querySelector(".inc-dismiss-bar"),
+    elapsedEl: el.querySelector(".inc-elapsed"),
+    ackBtn:    el.querySelector(".ack-btn"),
+  };
+
+  refs.ackBtn.addEventListener("click", function() {
+    acknowledgeIncident(inc.id);
+  });
+
+  return refs;
+}
+
+function renderIncidents() {
+  const now = Date.now();
+  const container = document.getElementById("incident-scroll");
+
+  // Auto-dismiss expired unacknowledged incidents
+  INCIDENTS.forEach(inc => {
+    if (!inc.acknowledged && now >= inc.dismissAt) inc.dismissed = true;
+  });
+  INCIDENTS = INCIDENTS.filter(x => !x.dismissed);
+
+  // Remove DOM nodes for incidents no longer in list
+  for (const [id, refs] of _incDOM) {
+    if (!INCIDENTS.find(x => x.id === id)) {
+      refs.el.remove();
+      _incDOM.delete(id);
+    }
+  }
+
+  // Update badge
+  const badge = document.getElementById("inc-badge");
+  badge.textContent      = INCIDENTS.length + " active";
+  badge.style.color      = INCIDENTS.length > 0 ? "var(--red)"         : "var(--green)";
+  badge.style.background = INCIDENTS.length > 0 ? "rgba(255,23,68,.1)" : "rgba(0,255,136,.08)";
+  badge.style.borderColor= INCIDENTS.length > 0 ? "rgba(255,23,68,.2)" : "rgba(0,255,136,.2)";
+
+  // Empty placeholder
+  if (INCIDENTS.length === 0) {
+    if (!_incEmptyEl) {
+      _incEmptyEl = document.createElement("div");
+      _incEmptyEl.style.cssText = "padding:20px;text-align:center;color:var(--dim);font-size:.68rem";
+      _incEmptyEl.textContent = "No incidents — all riders nominal";
+      container.appendChild(_incEmptyEl);
+    }
+    return;
+  }
+  if (_incEmptyEl) { _incEmptyEl.remove(); _incEmptyEl = null; }
+
+  // Add new / update existing — never rebuild innerHTML
+  INCIDENTS.forEach(inc => {
+    let refs = _incDOM.get(inc.id);
+
+    if (!refs) {
+      refs = _makeIncidentEl(inc);
+      container.insertBefore(refs.el, container.firstChild);
+      _incDOM.set(inc.id, refs);
+    }
+
+    // Patch only the parts that change every tick
+    const elapsedSec = Math.floor((now - inc.timestamp) / 1000);
+    refs.elapsedEl.textContent = elapsedSec < 60
+      ? elapsedSec + "s ago"
+      : Math.floor(elapsedSec / 60) + "m ago";
+
+    if (!inc.acknowledged) {
+      const remainMs  = Math.max(0, inc.dismissAt - now);
+      const remainSec = Math.ceil(remainMs / 1000);
+      refs.timerEl.textContent  = "auto-dismiss " + remainSec + "s";
+      refs.timerEl.style.color  = "var(--dim)";
+      refs.barEl.style.width    = ((remainMs / DISMISS_DURATION) * 100).toFixed(1) + "%";
+      refs.barEl.style.display  = "block";
+    } else if (!refs.el.classList.contains("acked")) {
+      refs.el.classList.add("acked");
+      refs.timerEl.textContent  = "kept";
+      refs.timerEl.style.color  = "var(--green)";
+      refs.barEl.style.display  = "none";
+      refs.ackBtn.textContent   = "ACKED";
+      refs.ackBtn.classList.add("acked-state");
+      refs.ackBtn.disabled      = true;
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  SPARKLINE UPDATE
+// ════════════════════════════════════════════════════════════════════
+function updateSparkline(r, i) {
+  const hist = r.perclosHistory;
+  if (hist.length < 2) return;
+  const VW = 120, VH = 24;
+  const n = hist.length;
+  let pts = "", areaTop = "";
+
+  hist.forEach((v, idx) => {
+    const x = (idx / (n - 1)) * VW;
+    const y = VH - clamp(v / 100, 0, 1) * VH;
+    pts += `${x.toFixed(1)},${y.toFixed(1)} `;
+    areaTop += `${x.toFixed(1)},${y.toFixed(1)} `;
+  });
+
+  const areaFull = areaTop + `${VW},${VH} 0,${VH}`;
+  const lineEl  = document.getElementById(`spark-line-${i}`);
+  const areaEl  = document.getElementById(`spark-area-${i}`);
+
+  if (lineEl) {
+    lineEl.setAttribute("points", pts);
+    const cur = r.perclos;
+    lineEl.style.stroke = cur >= 35 ? "#ff1744" : cur >= 25 ? "#ffb300" : "#00e5ff";
+  }
+  if (areaEl) {
+    areaEl.setAttribute("points", areaFull);
+    const cur = r.perclos;
+    areaEl.style.fill = cur >= 35 ? "#ff1744" : cur >= 25 ? "#ffb300" : "#00e5ff";
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  DOM UPDATE PER RIDER
+// ════════════════════════════════════════════════════════════════════
+function updateRiderDOM(r, i, now) {
+  // Card class
+  const card = document.getElementById(`card-${i}`);
+  card.className = "rider-card" + (r.alertStage >= 3 ? " st-3" : r.alertStage >= 2 ? " st-2" : r.alertStage >= 1 ? " st-1" : "");
+
+  // Badge
+  const bd = document.getElementById(`badge-${i}`);
+  const [bdTxt, bdCls] = r.alertStage >= 3 ? ["EMERGENCY","b-emergency"]
+                        : r.alertStage >= 2 ? ["CRITICAL","b-critical"]
+                        : r.alertStage >= 1 ? ["WARNING","b-warning"]
+                        : ["NORMAL","b-normal"];
+  bd.textContent = bdTxt; bd.className = "status-badge " + bdCls;
+
+  // Fatigue dot
+  const hrs = (now - r.startTime) / 3600000;
+  const fd = document.getElementById(`fatigue-${i}`);
+  fd.style.background = hrs >= 8 ? "#ff1744" : hrs >= 6 ? "#ffb300" : hrs >= 4 ? "#aadd00" : "#00ff88";
+  fd.title = `Shift fatigue: ${hrs.toFixed(1)}h on duty`;
+
+  // Camera overlay
+  document.getElementById(`camts-${i}`).textContent = ts();
+  const el = document.getElementById(`eyelbl-${i}`);
+  el.textContent = r.eyeState;
+  el.className = "eye-tag " + (r.eyeState === "OPEN" ? "et-open" : r.eyeState === "CLOSED" ? "et-closed" : "et-unknown");
+  document.getElementById(`conflbl-${i}`).textContent = r.faceLock.toFixed(0) + "%";
+  document.getElementById(`earlbl-${i}`).textContent = `EAR ${r.ear.toFixed(3)}`;
+
+  // Face lock bar
+  const flockColor = r.faceLock >= 85 ? "#00e5ff" : r.faceLock >= 70 ? "#ffb300" : "#ff1744";
+  const flBar = document.getElementById(`flock-bar-${i}`);
+  const flVal = document.getElementById(`flock-val-${i}`);
+  flBar.style.width = r.faceLock.toFixed(0) + "%";
+  flBar.style.background = flockColor;
+  flVal.textContent = r.faceLock.toFixed(0) + "%";
+  flVal.style.color = flockColor;
+
+  // PERCLOS meter
+  const pp = clamp(r.perclos, 0, 100);
+  const pfill = document.getElementById(`pbar-${i}`);
+  pfill.style.width = pp + "%";
+  pfill.className = "meter-fill " + (pp >= 35 ? "mf-red" : pp >= 22 ? "mf-amber" : "mf-green");
+  document.getElementById(`pval-${i}`).textContent = pp.toFixed(1) + "%";
+
+  // Closure meter
+  const cp = clamp((r.continuousClosure / 6.0) * 100, 0, 100);
+  const cfill = document.getElementById(`cbar-${i}`);
+  cfill.style.width = cp + "%";
+  cfill.className = "meter-fill " + (r.continuousClosure >= 4 ? "mf-red" : r.continuousClosure >= 2 ? "mf-amber" : "mf-green");
+  document.getElementById(`cval-${i}`).textContent = r.continuousClosure.toFixed(1) + "s";
+
+  // Biometrics — show real Pi MAX30102 values when available
+  const bpmEl   = document.getElementById(`bpm-${i}`);
+  const spo2El  = document.getElementById(`spo2-${i}`);
+  const bioSnsr = document.getElementById(`biosensor-${i}`);
+  bpmEl.textContent  = Math.round(r.bpm);
+  spo2El.textContent = r.spo2.toFixed(1);
+  if (r._realBio) {
+    bpmEl.style.color  = '#ff4081';   // brighter pink = real sensor data
+    spo2El.style.color = '#00e5ff';   // bright cyan  = real sensor data
+    if (bioSnsr) bioSnsr.style.display = 'block';
+  } else {
+    bpmEl.style.color  = 'var(--red)';
+    spo2El.style.color = 'var(--cyan)';
+    if (bioSnsr) bioSnsr.style.display = 'none';
+  }
+  const sec = Math.floor((now - r.startTime) / 1000);
+  const hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60);
+  const uptEl = document.getElementById(`upt-${i}`);
+  uptEl.textContent = `${hh}h${String(mm).padStart(2,"0")}`;
+  uptEl.style.color = hrs >= 8 ? "var(--red)" : hrs >= 6 ? "var(--amber)" : "var(--mid)";
+
+  // Stage pips
+  for (let s = 1; s <= 3; s++) {
+    document.getElementById(`pip${s}-${i}`).className = "pip" + (r.alertStage >= s ? " p"+s : "");
+  }
+  const stEl = document.getElementById(`stgtxt-${i}`);
+  stEl.textContent = ["—","Stage 1","Stage 2","Stage 3"][r.alertStage];
+  stEl.style.color = ["var(--dim)","var(--amber)","var(--red)","var(--purple)"][r.alertStage];
+
+  // Route progress
+  const pct = Math.min(r.routeProgress, 100);
+  const etaMin = Math.ceil(r.routeMin * (1 - pct / 100));
+  document.getElementById(`rpct-${i}`).textContent = pct.toFixed(0) + "%";
+  document.getElementById(`reta-${i}`).textContent = etaMin + " min";
+  document.getElementById(`rpbar-${i}`).style.width = pct + "%";
+
+  // Sparkline
+  updateSparkline(r, i);
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  FLEET STATS
+// ════════════════════════════════════════════════════════════════════
+let fleetRisk = 0, avgEAR = 0;
+
+function updateFleetStats() {
+  let n = 0, w = 0, c = 0, e = 0, earSum = 0, riskSum = 0;
+  RIDERS.forEach(r => {
+    if (r.alertStage >= 3) e++;
+    else if (r.alertStage >= 2) c++;
+    else if (r.alertStage >= 1) w++;
+    else n++;
+    earSum += r.ear;
+    const ps = clamp(r.perclos / 100, 0, 1);
+    const cs = clamp(r.continuousClosure / 6, 0, 1);
+    const ss = r.alertStage / 3;
+    riskSum += ps * .4 + cs * .35 + ss * .25;
+  });
+  avgEAR   = earSum / RIDERS.length;
+  fleetRisk = clamp((riskSum / RIDERS.length) * 100, 0, 100);
+  const today = RIDERS.reduce((a, r) => a + r.totalAlertsToday, 0);
+
+  document.getElementById("sb-active").textContent = n + w + c + e;
+  document.getElementById("sb-normal").textContent = n;
+  document.getElementById("sb-warn").textContent   = w;
+  document.getElementById("sb-crit").textContent   = c + e;
+  document.getElementById("sb-ear").textContent    = avgEAR.toFixed(3);
+  document.getElementById("sb-alerts").textContent = today;
+  const riskEl = document.getElementById("sb-risk");
+  riskEl.textContent = fleetRisk.toFixed(0);
+  riskEl.style.color = fleetRisk >= 50 ? "var(--red)" : fleetRisk >= 25 ? "var(--amber)" : "var(--green)";
+  document.getElementById("hdr-time").textContent = ts();
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  MAIN SIMULATION TICK (100ms)
+// ════════════════════════════════════════════════════════════════════
+// (old monolithic tick replaced — see simTick + renderTick below)
+
+// ════════════════════════════════════════════════════════════════════
+//  EXPORT REPORT
+// ════════════════════════════════════════════════════════════════════
+function exportReport() {
+  const now = new Date();
+  const report = {
+    exportedAt: now.toISOString(),
+    sessionInfo: {
+      system: "SmartHelm Fleet Operations Center",
+      program: "Unisys Innovation Program 2026 — Year 17",
+      phase: "Phase 2 Demo",
+      fleet: "Bangalore Delivery Fleet",
+    },
+    fleetSummary: {
+      activeRiders: RIDERS.length,
+      normalCount:  RIDERS.filter(r => r.alertStage === 0).length,
+      warningCount: RIDERS.filter(r => r.alertStage === 1).length,
+      criticalCount:RIDERS.filter(r => r.alertStage >= 2).length,
+      avgEAR:       avgEAR.toFixed(3),
+      fleetRiskScore: fleetRisk.toFixed(1),
+      totalAlertsToday: RIDERS.reduce((a,r) => a + r.totalAlertsToday, 0),
+    },
+    riders: RIDERS.map(r => ({
+      id: r.id,
+      name: r.name,
+      route: r.route,
+      vehicle: r.vehicle,
+      shift: r.shift,
+      eyeState: r.eyeState,
+      ear: r.ear.toFixed(3),
+      perclos: r.perclos.toFixed(1) + "%",
+      continuousClosure: r.continuousClosure.toFixed(2) + "s",
+      alertStage: r.alertStage,
+      alertActive: r.alertActive,
+      bpm: Math.round(r.bpm),
+      spo2: r.spo2.toFixed(1) + "%",
+      faceLock: r.faceLock.toFixed(0) + "%",
+      routeProgress: r.routeProgress.toFixed(0) + "%",
+      hoursOnDuty: ((now.getTime() - r.startTime) / 3600000).toFixed(2),
+      totalAlertsToday: r.totalAlertsToday,
+    })),
+    incidents: INCIDENTS.map(inc => ({
+      id: inc.id,
+      rider: inc.riderName,
+      stage: inc.stage,
+      reason: inc.reason,
+      triggerValue: inc.triggerVal,
+      timestamp: new Date(inc.timestamp).toISOString(),
+      acknowledged: inc.acknowledged,
+    })),
+    detectionConfig: {
+      algorithm: "MediaPipe FaceLandmarker + EAR",
+      perclosWindow: "60 seconds",
+      perclosAlertThreshold: "30%",
+      stage1Threshold: "2.0s continuous closure",
+      stage2Threshold: "4.0s continuous closure",
+      stage3Threshold: "6.0s continuous closure + SMS via Twilio",
+    },
+  };
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = `smarthelm-fleet-report-${now.toISOString().slice(0,19).replace(/:/g,"-")}.json`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  BOOT — decoupled intervals by cost
+// ════════════════════════════════════════════════════════════════════
+buildDOM();
+
+let _simTick = 0;
+
+function simTick() {
+  // Simulation runs at 5 Hz — data only, no rendering
+  const now = Date.now();
+  RIDERS.forEach((r, i) => {
+    if (r.isLive) {
+      // Real data is injected by Firebase module — only maintain history for sparkline
+      const now2 = Date.now();
+      if (now2 - (r.lastPerclosPush||0) >= 1000) {
+        r.perclosHistory.push(r.perclos);
+        if (r.perclosHistory.length > 60) r.perclosHistory.shift();
+        r.lastPerclosPush = now2;
+      }
+      return;
+    }
+    // Blink engine
+    if (now >= r.blinkEnd) {
+      r.isBlinking = false;
+      if (now >= r.nextBlink && !r.isMicrosleep) {
+        r.isBlinking = true;
+        r.blinkEnd  = now + BLINK_DURATION;
+        r.nextBlink = now + rnd(3800, 6200);
+      }
+    }
+    // Microsleep engine
+    if (now >= r.microsleepEnd) {
+      r.isMicrosleep = false;
+      if (now >= r.nextMicrosleep && !r.isBlinking) {
+        const chance = r.risk === "high" ? 0.55 : r.risk === "medium" ? 0.22 : 0.06;
+        if (Math.random() < chance) {
+          const dur = r.risk === "high" ? rnd(1600,5500) : r.risk === "medium" ? rnd(800,2200) : rnd(400,1000);
+          r.isMicrosleep  = true;
+          r.microsleepEnd = now + dur;
+        }
+        r.nextMicrosleep = now + rnd(
+          r.risk==="high"?3000:r.risk==="medium"?7000:15000,
+          r.risk==="high"?8000:r.risk==="medium"?14000:30000
+        );
+      }
+    }
+    const closed = r.isBlinking || r.isMicrosleep;
+    r.eyeState   = closed ? "CLOSED" : "OPEN";
+    r.eyeTarget  = closed ? 0.0 : 1.0;
+    r.eyeOpenness += (r.eyeTarget - r.eyeOpenness) * 0.25;
+    r.ear = closed ? rnd(0.09,0.17) : rnd(0.26,0.38);
+    if (closed) {
+      if (r.closureStart === null) r.closureStart = now;
+      r.continuousClosure = (now - r.closureStart) / 1000;
+    } else { r.closureStart = null; r.continuousClosure = 0; }
+    r.perclosWindow.push(closed ? 1 : 0);
+    if (r.perclosWindow.length > 600) r.perclosWindow.shift();
+    r.perclos = (r.perclosWindow.reduce((a,b)=>a+b,0) / r.perclosWindow.length) * 100;
+    if (now - r.lastPerclosPush >= 1000) {
+      r.perclosHistory.push(r.perclos);
+      if (r.perclosHistory.length > 60) r.perclosHistory.shift();
+      r.lastPerclosPush = now;
+    }
+    if (now >= r.bpmNextChange) {
+      r.bpmTarget     = r.baseHR + rnd(-5, r.alertActive ? 12 : 6);
+      r.bpmNextChange = now + rnd(2000, 4000);
+    }
+    r.bpm  += (r.bpmTarget - r.bpm) * 0.04;
+    r.bpm   = clamp(r.bpm, r.baseHR-10, r.baseHR+22);
+    r.spo2 += (Math.random()-.5) * 0.04;
+    r.spo2  = clamp(r.spo2, 95.0, 99.5);
+    const lockTarget = closed ? rnd(75,90) : rnd(88,97);
+    r.faceLock += (lockTarget - r.faceLock) * 0.08;
+    r.faceLock  = clamp(r.faceLock, 50, 99);
+    r.prevStage = r.alertStage;
+    if      (r.continuousClosure>=STAGE_S3||r.perclos>=45){r.alertStage=3;r.alertActive=true;}
+    else if (r.continuousClosure>=STAGE_S2||r.perclos>=35){r.alertStage=2;r.alertActive=true;}
+    else if (r.continuousClosure>=STAGE_S1||r.perclos>=30){r.alertStage=1;r.alertActive=true;}
+    else                                                   {r.alertStage=0;r.alertActive=false;}
+    if (r.alertStage > r.prevStage && r.alertStage > 0) {
+      r.totalAlertsToday++;
+      const reason = r.continuousClosure>=STAGE_S1 ? "Continuous Eye Closure" : "Elevated PERCLOS";
+      const val    = r.continuousClosure>=STAGE_S1
+        ? r.continuousClosure.toFixed(1)+"s closure / PERCLOS "+r.perclos.toFixed(0)+"%"
+        : "PERCLOS "+r.perclos.toFixed(1)+"%";
+      pushIncident(r, r.alertStage, reason, val);
+    }
+    r.routeProgress = Math.min(100, r.routeProgress + r.routeProgressRate * 2);
+  });
+}
+
+function renderTick() {
+  // Rendering runs at ~8 FPS — canvas + DOM updates
+  const now = Date.now();
+  RIDERS.forEach((r, i) => {
+    updateRiderDOM(r, i, now);
+    drawCam(r, i);
+  });
+  updateFleetStats();
+  renderIncidents();
+  drawMap();
+}
+
+// Expose RIDERS + pushIncident to Firebase module (module scope can't reach const)
+window._RIDERS = RIDERS;
+window._pushIncident = pushIncident;
+
+// Simulation: 5 Hz (every 200ms)
+setInterval(simTick, 200);
+
+// Rendering: ~8 FPS (every 120ms) — smooth enough for a demo
+setInterval(renderTick, 120);
+
+// Seed initial render immediately
+simTick();
+renderTick();
+</script>
+
+
+<script type="module">
+import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, onSnapshot, doc, getDoc, setDoc, query, where }
+                            from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut }
+                            from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+// firebase.config.js is loaded as a plain <script> above and sets window._firebaseConfig.
+// Using a plain script (not an ES module import) works in all browsers including Firefox,
+// which blocks file:// relative ES module imports.
+const firebaseConfig = window._firebaseConfig;
+
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+
+// ── Manager code derivation — mirrors DetectionService.managerCodeFromPhone() ──
+// DJB2 hash → 6 chars from base-32 (no 0/O/1/I/L) — same algorithm as Kotlin side.
+// Normalise to the LAST 10 DIGITS first, so +91 / 0-prefix / bare-10-digit forms
+// all collapse to one canonical number and always produce the same code.
+function managerCodeFromPhone(phone) {
+  let digits = (phone || '').replace(/\D/g, '');
+  if (digits.length > 10) digits = digits.slice(-10);
+  if (!digits) return 'XXXXXX';
+  let h = 5381;
+  for (let i = 0; i < digits.length; i++) {
+    h = ((Math.imul(h, 33) ^ digits.charCodeAt(i)) >>> 0);
+  }
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let x = h, code = '';
+  for (let i = 0; i < 6; i++) { code += chars[x % chars.length]; x = Math.floor(x / chars.length); }
+  return code;
+}
+
+// ── Fleet manager auth gate ──────────────────────────────────────────
+// The dashboard is manager-only: nothing renders until the manager signs in
+// with their phone (Firebase Phone Auth OTP). managerCode is their derived
+// 6-char code and is ALWAYS the active filter — only their fleet's riders show.
+let managerCode  = '';
+let managerPhone = '';
+let confirmationResult = null;
+
+const norm10 = s => { const d = (s || '').replace(/\D/g, ''); return d.length > 10 ? d.slice(-10) : d; };
+const gateError = m => { document.getElementById('gate-error').textContent = m || ''; };
+
+function showFleetBar(code, phone, emergency) {
+  document.getElementById('mgr-code-box').textContent      = code;
+  document.getElementById('mgr-phone-lbl').textContent     = phone     ? '+91 ' + phone     : '—';
+  document.getElementById('mgr-emergency-lbl').textContent = emergency ? '+91 ' + emergency : '—';
+}
+
+window._managerLogout = async () => {
+  try { await signOut(auth); } catch (e) {}
+  localStorage.removeItem('sh_manager_phone');
+  location.reload();
+};
+
+// Restrict the gate inputs to digits only.
+['gate-phone', 'gate-emergency', 'gate-otp'].forEach(id => {
+  document.getElementById(id).addEventListener('input', e => {
+    e.target.value = e.target.value.replace(/\D/g, '');
+  });
+});
+
+// Step 1 → send OTP
+document.getElementById('gate-send').addEventListener('click', async () => {
+  const phone10 = norm10(document.getElementById('gate-phone').value);
+  const emerg10 = norm10(document.getElementById('gate-emergency').value);
+  if (phone10.length !== 10) return gateError('Enter a valid 10-digit phone number.');
+  if (emerg10 && emerg10.length !== 10) return gateError('Emergency number must be 10 digits.');
+  gateError('');
+  const btn = document.getElementById('gate-send');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    if (!window._recaptcha) {
+      window._recaptcha = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+    }
+    confirmationResult       = await signInWithPhoneNumber(auth, '+91' + phone10, window._recaptcha);
+    window._pendingEmergency = emerg10;
+    document.getElementById('gate-step1').style.display = 'none';
+    document.getElementById('gate-step2').style.display = '';
+    document.getElementById('gate-otp').focus();
+  } catch (e) {
+    console.error('OTP send failed:', e);
+    gateError('Could not send OTP. Add this number as a Firebase test number, and open the dashboard over http://localhost (not file://).');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send OTP';
+  }
+});
+
+// Step 2 → verify OTP (onAuthStateChanged completes the rest)
+document.getElementById('gate-verify').addEventListener('click', async () => {
+  const code = (document.getElementById('gate-otp').value || '').replace(/\D/g, '');
+  if (code.length !== 6) return gateError('Enter the 6-digit code.');
+  if (!confirmationResult) return gateError('Session expired — go back and resend.');
+  gateError('');
+  const btn = document.getElementById('gate-verify');
+  btn.disabled = true; btn.textContent = 'Verifying…';
+  try {
+    await confirmationResult.confirm(code);
+  } catch (e) {
+    gateError('Incorrect code — try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Verify & Enter';
+  }
+});
+
+document.getElementById('gate-back').addEventListener('click', () => {
+  document.getElementById('gate-step2').style.display = 'none';
+  document.getElementById('gate-step1').style.display = '';
+  gateError('');
+});
+
+// ── Slot management ──────────────────────────────────────────────────
+const deviceToSlot = {};
+const liveData     = {};
+const prevAlert    = {};
+
+function parseLandmarks(flat) {
+  if (!flat?.length) return [];
+  const pts = [];
+  for (let i = 0; i < flat.length - 1; i += 2) pts.push([flat[i], flat[i+1]]);
+  return pts;
+}
+
+function getOrAssignSlot(deviceId, riderName) {
+  if (deviceToSlot[deviceId] !== undefined) return deviceToSlot[deviceId];
+  const RIDERS = window._RIDERS;
+  if (!RIDERS) return -1;
+  const taken = new Set(Object.values(deviceToSlot));
+  const nameIdx = RIDERS.findIndex((r, i) =>
+    !taken.has(i) && r.name.toLowerCase() === (riderName||'').toLowerCase()
+  );
+  if (nameIdx >= 0) { deviceToSlot[deviceId] = nameIdx; return nameIdx; }
+  for (let i = 0; i < RIDERS.length; i++) {
+    if (!taken.has(i)) { deviceToSlot[deviceId] = i; return i; }
+  }
+  return -1;
+}
+
+function releaseSlot(deviceId) {
+  const slot = deviceToSlot[deviceId];
+  if (slot === undefined) return;
+  const r = window._RIDERS?.[slot];
+  if (r) {
+    r.isLive = false;
+    r._snapImg = null;
+    r._eyeLandmarks = null;
+    r.lat = null; r.lng = null; r.speedKmph = null;   // revert map marker to simulated position
+  }
+  const badgeEl = document.getElementById(`live-badge-${slot}`);
+  if (badgeEl) badgeEl.style.display = 'none';
+  delete deviceToSlot[deviceId];
+}
+
+function injectLiveData(deviceId, data) {
+  const RIDERS = window._RIDERS;
+  if (!RIDERS) return;
+
+  // Fleet manager filter — when active, show ONLY riders whose managerId matches.
+  // Riders without a managerId are also hidden (they haven't set up their manager).
+  if (managerCode && data.managerId !== managerCode) {
+    console.warn(`[SmartHelm] Hiding "${data.riderName || deviceId}": ` +
+      `rider managerId="${data.managerId || '(empty)'}" ≠ dashboard code "${managerCode}". ` +
+      `Rider must enter the SAME manager phone in app setup.`);
+    releaseSlot(deviceId);
+    return;
+  }
+
+  const stale = !data.connected || (Date.now()/1000 - (data.updatedAt?.seconds||0)) > 30;
+  if (stale) {
+    // Keep the slot if the rider is mid-trip — monitorSafety() escalates to a concern
+    if (data.tripActive === true && data.appState !== 'ENDED' && data.connected !== false) return;
+    releaseSlot(deviceId); return;
+  }
+  // Fresh data — rider is alive; clear any prior safety concern
+  clearConcern(deviceId);
+
+  const slot = getOrAssignSlot(deviceId, data.riderName);
+  if (slot < 0) return;
+  const r = RIDERS[slot];
+
+  r.isLive      = true;
+  r.name        = data.riderName || r.name;
+  r.eyeState    = (data.eyeState || 'UNKNOWN').toUpperCase();
+  r.eyeOpenness = r.eyeState === 'CLOSED' ? 0.04 : r.eyeState === 'OPEN' ? 1.0 : 0.5;
+  r.perclos     = parseFloat(data.perclos) || 0;
+  r.continuousClosure = parseFloat(data.continuousClosureSec) || 0;
+  r.ear         = r.eyeState === 'CLOSED' ? 0.13 : 0.30;
+  r.faceLock    = data.faceDetected ? 94 : 35;
+  r.faceDetected = !!data.faceDetected;
+
+  // Pi biometrics — MAX30102 heart-rate + SpO2 (only present for Pi-helmet riders)
+  if (data.heartRate && parseFloat(data.heartRate) > 0) {
+    r.bpm      = parseFloat(data.heartRate);
+    r._realBio = true;
+  }
+  if (data.spo2 && parseFloat(data.spo2) > 0) {
+    r.spo2     = parseFloat(data.spo2);
+    r._realBio = true;
+  }
+
+  // Real GPS position + speed (F1) — drives the live Leaflet map marker
+  if (data.location && typeof data.location.latitude === "number") {
+    r.lat = data.location.latitude;
+    r.lng = data.location.longitude;
+  }
+  if (typeof data.speedKmph === "number") r.speedKmph = data.speedKmph;
+
+  // Parse landmark arrays from Firestore [x1,y1,x2,y2,...] → [[x,y],...]
+  r._eyeLandmarks = {
+    left:  parseLandmarks(data.eyeLandmarksLeft),
+    right: parseLandmarks(data.eyeLandmarksRight)
+  };
+
+  // Live snapshot → Image object (drawn on canvas by drawLiveFeed each renderTick)
+  if (data.snapshot) {
+    if (!r._snapImg) r._snapImg = new Image();
+    const newSrc = 'data:image/jpeg;base64,' + data.snapshot;
+    if (r._snapImg.src !== newSrc) r._snapImg.src = newSrc;
+  }
+
+  // Alert stage from real data
+  const prevStage = r.alertStage || 0;
+  const cc = r.continuousClosure, pc = r.perclos;
+  if      (cc >= 6 || pc >= 45) { r.alertStage = 3; r.alertActive = true; }
+  else if (cc >= 4 || pc >= 35) { r.alertStage = 2; r.alertActive = true; }
+  else if (cc >= 2 || pc >= 30) { r.alertStage = 1; r.alertActive = true; }
+  else                           { r.alertStage = 0; r.alertActive = false; }
+
+  if (r.alertStage > prevStage && r.alertStage > 0 && window._pushIncident) {
+    r.totalAlertsToday = (r.totalAlertsToday || 0) + 1;
+    window._pushIncident(r, r.alertStage,
+      cc >= 2 ? 'Continuous Eye Closure (Live)' : 'Elevated PERCLOS (Live)',
+      `PERCLOS ${pc.toFixed(0)}% · Closure ${cc.toFixed(1)}s`
+    );
+  }
+
+  // Badge + card header
+  const badgeEl = document.getElementById(`live-badge-${slot}`);
+  if (badgeEl) badgeEl.style.display = '';
+  const nameEl = document.querySelector(`#card-${slot} .rider-name`);
+  const subEl  = document.querySelector(`#card-${slot} .rider-sub`);
+  if (nameEl) nameEl.textContent = data.riderName || r.name;
+  if (subEl)  subEl.textContent  = '● LIVE · ' + deviceId.slice(0,8).toUpperCase();
+}
+
+// ── Firestore listener ───────────────────────────────────────────────
+// ── F2: app-off-mid-trip safety concern ──────────────────────────────
+const CONCERN_SEC = 90;     // app silent this long mid-trip → safety concern
+const ABANDON_SEC = 1800;   // after 30 min, stop tracking as an active concern
+const concernState = {};    // deviceId → true while a concern is active
+
+// Seconds since the rider last checked in, but ONLY if they are mid-trip and
+// did not end gracefully. Returns -1 when there is no concern to evaluate.
+function midTripSilentAge(data) {
+  if (!data) return -1;
+  if (data.connected === false) return -1;   // graceful disconnect
+  if (data.appState === 'ENDED') return -1;   // trip ended cleanly
+  if (data.tripActive !== true) return -1;    // not on a trip
+  const last = (data.lastHeartbeatAt && data.lastHeartbeatAt.seconds)
+            || (data.updatedAt && data.updatedAt.seconds) || 0;
+  return Math.floor(Date.now() / 1000 - last);
+}
+
+function startSafetyMonitor() {
+  if (window._safetyMonitor) return;
+  window._safetyMonitor = setInterval(monitorSafety, 5000);
+}
+
+function monitorSafety() {
+  Object.entries(liveData).forEach(([id, data]) => {
+    if (managerCode && data.managerId !== managerCode) return;
+    const age = midTripSilentAge(data);
+    if (age >= CONCERN_SEC && age < ABANDON_SEC) {
+      raiseConcern(id, data, age);
+    } else {
+      if (concernState[id]) clearConcern(id);
+      if (age >= ABANDON_SEC) releaseSlot(id);
+    }
+  });
+  renderConcernBanner();
+}
+
+function raiseConcern(id, data, age) {
+  const slot = getOrAssignSlot(id, data.riderName);
+  if (slot < 0) return;
+  const r = window._RIDERS[slot];
+  r._concern = true;
+  r.name = data.riderName || r.name;
+  if (data.location && typeof data.location.latitude === 'number') {
+    r.lat = data.location.latitude; r.lng = data.location.longitude;
+  }
+  if (!concernState[id]) {              // edge: raise once
+    concernState[id] = true;
+    if (Notification.permission === 'granted') {
+      new Notification('SmartHelm — Safety Concern', {
+        body: `${data.riderName || 'A rider'}'s app went offline mid-trip (silent ${age}s). Last known location pinned.`,
+        tag: 'sh-concern-' + id
+      });
+    }
+    if (window._pushIncident) {
+      window._pushIncident(r, 3, 'Safety Concern — App Offline Mid-Trip',
+        `Silent ${age}s · last GPS known`);
+    }
+  }
+}
+
+function clearConcern(id) {
+  if (!concernState[id]) return;
+  delete concernState[id];
+  const slot = deviceToSlot[id];
+  if (slot !== undefined && window._RIDERS[slot]) window._RIDERS[slot]._concern = false;
+  renderConcernBanner();
+}
+
+function renderConcernBanner() {
+  const el = document.getElementById('safety-banner');
+  if (!el) return;
+  const ids = Object.keys(concernState);
+  if (!ids.length) { el.className = ''; el.innerHTML = ''; return; }
+  const items = ids.map(id => {
+    const data = liveData[id];
+    const age = midTripSilentAge(data);
+    const name = (data && data.riderName) || 'Rider';
+    const loc = (data && data.location)
+      ? `${data.location.latitude.toFixed(4)}, ${data.location.longitude.toFixed(4)}` : 'unknown';
+    return `${name} — silent ${age >= 0 ? age + 's' : '—'} · last GPS ${loc}`;
+  });
+  el.className = 'active';
+  el.innerHTML = '<span class="sb-icon">⚠</span>' +
+    '<span>SAFETY CONCERN — rider app went dark mid-trip:</span>' +
+    '<span class="sb-list">' + items.join('  ·  ') + '</span>';
+}
+
+// ── Firebase connection status pill ─────────────────────────────────
+function setFbStatus(ok, label) {
+  const pill = document.getElementById('fb-pill');
+  const dot  = document.getElementById('fb-dot');
+  const lbl  = document.getElementById('fb-label');
+  if (!pill) return;
+  const [bg, bc, tc, dc] = ok
+    ? ['rgba(34,204,68,.08)','rgba(34,204,68,.3)','var(--green)','var(--green)']
+    : ['rgba(255,68,68,.08)','rgba(255,68,68,.3)','var(--red)',  'var(--red)'];
+  Object.assign(pill.style, { background: bg, borderColor: bc, color: tc });
+  dot.style.background = dc;
+  lbl.textContent = label;
+}
+
+// ── Firestore listener ───────────────────────────────────────────────
+function startListening() {
+  if (window._listening) return;   // onAuthStateChanged can fire more than once
+  window._listening = true;
+  startSafetyMonitor();
+  if (Notification.permission === 'default') Notification.requestPermission();
+  // Firestore rules only allow a manager to read riders of a fleet they own, so the
+  // listener MUST be filtered on managerId (an unfiltered list is denied by the rules).
+  onSnapshot(query(collection(db, 'riders'), where('managerId', '==', managerCode)),
+    snap => {
+      snap.docChanges().forEach(ch => {
+        const id = ch.doc.id;
+        if (ch.type === 'removed') { delete liveData[id]; releaseSlot(id); delete prevAlert[id]; return; }
+        liveData[id] = ch.doc.data();
+      });
+      Object.entries(liveData).forEach(([id, data]) => {
+        try { injectLiveData(id, data); }
+        catch (e) { console.error('SmartHelm injectLiveData failed for', id, e); return; }
+        if (!prevAlert[id] && data.alertActive && Notification.permission === 'granted') {
+          new Notification('SmartHelm — Drowsiness Alert', {
+            body: `${data.riderName || 'A rider'} — PERCLOS ${parseFloat(data.perclos||0).toFixed(0)}%`,
+            tag: 'sh-alert-' + id,
+          });
+        }
+        prevAlert[id] = data.alertActive;
+      });
+    },
+    err => {
+      console.error('SmartHelm Firestore listener error:', err.code, err.message);
+      setFbStatus(false, err.code === 'permission-denied' ? 'AUTH ERR' : 'FS ERR');
+    }
+  );
+}
+
+// ── Auth gate → enter dashboard ──────────────────────────────────────
+// On a verified phone login (or a persisted session on refresh), derive the
+// manager's code, sync the /fleets/{code} doc, reveal the dashboard, and start
+// listening — filtered to this manager's riders only.
+async function enterDashboard(user) {
+  const phone10 = norm10(user.phoneNumber) || norm10(localStorage.getItem('sh_manager_phone'));
+  managerPhone  = phone10;
+  managerCode   = managerCodeFromPhone(phone10);
+  localStorage.setItem('sh_manager_phone', phone10);
+
+  let emergency = window._pendingEmergency || '';
+  try {
+    const fref = doc(db, 'fleets', managerCode);
+    if (emergency) {
+      await setDoc(fref, { managerUid: user.uid, managerPhone: phone10, emergencyContact: emergency,
+                           updatedAt: new Date().toISOString() }, { merge: true });
+    } else {
+      const snap = await getDoc(fref);
+      if (snap.exists()) emergency = snap.data().emergencyContact || '';
+      await setDoc(fref, { managerUid: user.uid, managerPhone: phone10, updatedAt: new Date().toISOString() }, { merge: true });
+    }
+  } catch (e) { console.warn('Fleet doc sync failed:', e.message); }
+
+  showFleetBar(managerCode, phone10, emergency);
+  document.getElementById('mgr-gate').classList.add('hidden');
+  setFbStatus(true, 'FIREBASE');
+  startListening();
+}
+
+onAuthStateChanged(auth, user => {
+  if (user && user.phoneNumber) {
+    enterDashboard(user);
+  } else {
+    // Not signed in (or a stale anonymous session) — keep the gate up.
+    document.getElementById('mgr-gate').classList.remove('hidden');
+  }
+});
+</script>
+</body>
+</html>

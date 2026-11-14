@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Identity model ──────────────────────────────────────────────────
+    // • Rider app: OTP is checked on the phone, then the rider signs in to Firebase
+    //   ANONYMOUSLY. A rider document is therefore bound to that anonymous uid through
+    //   an `ownerUid` field written on the first write (the doc id is a random device
+    //   UUID, not the uid).
+    // • Fleet manager: signs in with Firebase Phone Auth (a verified phone number).
+    //   Their fleet document /fleets/{code} records `managerUid`; a manager may read
+    //   only the riders whose `managerId` equals a fleet code they own.
+    // • Cloud Functions use the Admin SDK and bypass these rules.
+    //
+    // Known residual risks (not solvable in rules alone): the 6-char fleet code is a
+    // client-side hash of the manager phone, so a fleet code can be squatted before its
+    // real manager registers it; and any rider can put any phone number in
+    // `emergencyContact`. Real fixes: register fleets via a callable Cloud Function and
+    // rate-limit/verify SMS recipients server-side.
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isPhoneLogin() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == 'phone';
+    }
+
+    function fleetPath(code) {
+      return /databases/$(database)/documents/fleets/$(code);
+    }
+
+    function riderPath(id) {
+      return /databases/$(database)/documents/riders/$(id);
+    }
+
+    // True when the signed-in phone user owns the fleet whose code is `code`.
+    function ownsFleet(code) {
+      return isPhoneLogin()
+          && code is string && code.size() == 6
+          && exists(fleetPath(code))
+          && get(fleetPath(code)).data.get('managerUid', '') == request.auth.uid;
+    }
+
+    // Does the signed-in user own the rider document whose data map is `r`?
+    function ownsRider(r) {
+      return signedIn() && r.get('ownerUid', '') == request.auth.uid;
+    }
+
+    function managesRider(r) {
+      return ownsFleet(r.get('managerId', ''));
+    }
+
+    // The verified phone_number claim ends with the given 10 digits.
+    function phoneMatchesLogin(ten) {
+      return ten is string && ten.matches('^[0-9]{10}$')
+          && request.auth.token.phone_number.matches('.*' + ten);
+    }
+
+    function validFleetFields(d) {
+      return d.keys().hasOnly(['managerUid', 'managerPhone', 'emergencyContact', 'updatedAt'])
+          && d.managerPhone is string && d.managerPhone.matches('^[0-9]{10}$')
+          && (!('emergencyContact' in d) || (d.emergencyContact is string && d.emergencyContact.matches('^[0-9]{0,10}$')))
+          && (!('updatedAt' in d) || d.updatedAt is string);
+    }
+
+    // ── Fleet documents ─────────────────────────────────────────────────
+    // One doc per manager, keyed by the derived 6-char code. A rider's app reads it by
+    // code (get) to learn the manager phone + fleet emergency contact. Listing is denied
+    // so codes cannot be enumerated. Only a verified-phone manager can create/modify it,
+    // and only for their own number.
+    match /fleets/{code} {
+      allow get:  if signedIn();
+      allow list: if false;
+
+      allow create: if isPhoneLogin()
+                    && request.resource.data.managerUid == request.auth.uid
+                    && validFleetFields(request.resource.data)
+                    && phoneMatchesLogin(request.resource.data.managerPhone);
+
+      allow update: if isPhoneLogin()
+                    && request.resource.data.managerUid == request.auth.uid
+                    && validFleetFields(request.resource.data)
+                    && phoneMatchesLogin(request.resource.data.managerPhone)
+                    // already mine, OR a legacy doc (no managerUid) whose stored phone is mine
+                    && ( resource.data.get('managerUid', '') == request.auth.uid
+                         || ( resource.data.get('managerUid', '') == ''
+                              && phoneMatchesLogin(resource.data.get('managerPhone', 'x')) ) );
+
+      allow delete: if false;
+    }
+
+    // ── Rider status documents ──────────────────────────────────────────
+    match /riders/{deviceId} {
+
+      // Owner reads own doc; a manager reads only riders in a fleet they own.
+      // NOTE: a list query must filter on managerId (where('managerId','==',code)).
+      allow read: if ownsRider(resource.data) || managesRider(resource.data);
+
+      // First write must claim the doc for the caller.
+      allow create: if signedIn()
+                    && request.resource.data.get('ownerUid', '') == request.auth.uid
+                    && isValidRiderUpdate(request.resource.data);
+
+      // Updates: the owner, or — for a legacy doc with no owner yet — a first claim.
+      allow update: if signedIn()
+                    && isValidRiderUpdate(request.resource.data)
+                    && request.resource.data.get('ownerUid', '') == request.auth.uid
+                    && ( resource.data.get('ownerUid', '') == request.auth.uid
+                         || resource.data.get('ownerUid', '') == '' );
+
+      allow delete: if ownsRider(resource.data);
+
+      // Alerts — append-only; written by the owner, readable by owner + fleet manager.
+      match /alerts/{alertId} {
+        allow read:   if ownsRider(get(riderPath(deviceId)).data)
+                      || managesRider(get(riderPath(deviceId)).data);
+        allow create: if ownsRider(get(riderPath(deviceId)).data);
+        allow update, delete: if false;
+      }
+
+      // Session stats — owner only.
+      match /session/{doc} {
+        allow read, write: if ownsRider(get(riderPath(deviceId)).data);
+      }
+
+      // Breadcrumb track points — append-only.
+      match /track/{point} {
+        allow read:   if ownsRider(get(riderPath(deviceId)).data)
+                      || managesRider(get(riderPath(deviceId)).data);
+        allow create: if ownsRider(get(riderPath(deviceId)).data);
+        allow update, delete: if false;
+      }
+    }
+
+    // ── Validation ──────────────────────────────────────────────────────
+    // Each check applies only when the field is present, so partial merge-updates
+    // (snapshot-only, heartbeat-only, trip-only) pass.
+    function isValidRiderUpdate(data) {
+      return (!('eyeState'  in data) || data.eyeState in ['OPEN', 'CLOSED', 'UNKNOWN'])
+          && (!('connected' in data) || data.connected is bool)
+          && (!('riderName' in data) || (data.riderName is string && data.riderName.size() <= 80))
+          && (!('perclos'   in data) || (data.perclos is number && data.perclos >= 0 && data.perclos <= 100))
+          && (!('appState'  in data) || data.appState in ['FOREGROUND', 'BACKGROUND', 'ENDED'])
+          && (!('managerId' in data) || (data.managerId is string && data.managerId.size() <= 6))
+          && (!('emergencyContact'  in data) || (data.emergencyContact  is string && data.emergencyContact.matches('^[+0-9]{0,15}$')))
+          && (!('fleetManagerPhone' in data) || (data.fleetManagerPhone is string && data.fleetManagerPhone.matches('^[+0-9]{0,15}$')))
+          && (!('riderPhone'        in data) || (data.riderPhone        is string && data.riderPhone.matches('^[+0-9 ()-]{0,20}$')))
+          && (!('snapshot' in data) || (data.snapshot is string && data.snapshot.size() <= 100000));
+    }
+  }
+}

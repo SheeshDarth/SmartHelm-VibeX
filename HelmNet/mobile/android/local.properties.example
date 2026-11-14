@@ -1,0 +1,13 @@
+# Copy this file to local.properties (same directory) and fill in your values.
+# local.properties is gitignored — it must NEVER be committed.
+
+# Android SDK path — set automatically by Android Studio
+sdk.dir=/path/to/your/Android/Sdk
+
+# Twilio credentials for the alert SMS the app sends (AlertManager.sendViaTwilio).
+# WARNING: app/build.gradle.kts compiles these into BuildConfig, so they end up
+# INSIDE the APK. Never share or publish an APK built with real values — for any
+# APK that leaves your own devices, leave all three EMPTY (SMS is then skipped).
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM_NUMBER=

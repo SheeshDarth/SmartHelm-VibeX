@@ -1,16 +1,8 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
     id("com.google.firebase.crashlytics")
-}
-
-// Read credentials from local.properties (never committed to git)
-val localProps = Properties().apply {
-    val f = rootProject.file("local.properties")
-    if (f.exists()) load(f.inputStream())
 }
 
 android {
@@ -22,14 +14,13 @@ android {
         minSdk = 31
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.1"
+        // No API keys or SMS credentials are compiled into the app: alert SMS use the phone's SIM.
 
-        buildConfigField("String", "TWILIO_ACCOUNT_SID",
-            "\"${localProps.getProperty("TWILIO_ACCOUNT_SID", "")}\"")
-        buildConfigField("String", "TWILIO_AUTH_TOKEN",
-            "\"${localProps.getProperty("TWILIO_AUTH_TOKEN", "")}\"")
-        buildConfigField("String", "TWILIO_FROM_NUMBER",
-            "\"${localProps.getProperty("TWILIO_FROM_NUMBER", "")}\"")
+        // MediaPipe 0.10.14 ships no x86_64 face-landmarker library, so an x86_64 install would
+        // crash on Start. Ship ARM only: phones are ARM, and x86_64 emulators/Chromebooks run
+        // ARM through translation when no x86_64 libs are present.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
 
     buildTypes {

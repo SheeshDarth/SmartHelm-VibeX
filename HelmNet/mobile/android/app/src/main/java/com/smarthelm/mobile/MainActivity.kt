@@ -96,6 +96,11 @@ class MainActivity : AppCompatActivity() {
         }
         binding.layoutEmergencyContact.visibility =
             if (Prefs.isSmsEnabled(this)) View.VISIBLE else View.GONE
+        // Setup turns SMS on when the fleet has a manager/emergency number; ask for the
+        // permission up front so the first real alert isn't silently skipped.
+        if (Prefs.isSmsEnabled(this) && !hasPermission(Manifest.permission.SEND_SMS)) {
+            requestSmsPermission()
+        }
 
         // Start / Stop
         binding.btnStart.setOnClickListener {

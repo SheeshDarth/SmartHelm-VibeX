@@ -1,6 +1,8 @@
 package com.smarthelm.mobile.alert
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -8,10 +10,10 @@ import android.media.MediaPlayer
 import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
-import android.util.Base64
+import android.telephony.SmsManager
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.google.firebase.crashlytics.FirebaseCrashlytics
-import com.smarthelm.mobile.BuildConfig
 import com.smarthelm.mobile.R
 import com.smarthelm.mobile.util.Prefs
 import kotlinx.coroutines.CoroutineScope
@@ -19,13 +21,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
 import java.util.concurrent.Executors
 
 /**
- * Manages all alert output: a sustained alarm (sound + vibration) and SMS via Twilio.
+ * Manages all alert output: a sustained alarm (sound + vibration) and an SMS to the fleet
+ * manager / emergency contact sent from the driver's own SIM.
  *
  * Alarm design (robust while another app — e.g. Google Maps — is in the foreground):
  *   - A looping MediaPlayer on the ALARM stream so it keeps buzzing the whole time the
@@ -37,7 +37,7 @@ import java.util.concurrent.Executors
  *     The ALARM stream still sounds under DND, so the alarm is heard regardless.
  *
  * SMS path:
- *   trigger() → (after 15 s sustained) sendViaTwilio() → Twilio Programmable SMS.
+ *   trigger() → (after 15 s sustained, if SMS is enabled) sendViaSim() → SmsManager.
  *
  * trigger()/clear() are invoked from the single camera-analysis thread, so start/stop
  * ordering is deterministic; the actual audio work runs on a dedicated single-thread
@@ -58,6 +58,7 @@ class AlertManager(private val context: Context) {
     @Volatile private var lastSmsMs    = 0L
     @Volatile private var alertStartMs = 0L   // when the current alert episode began
     @Volatile private var alarmPlaying = false
+    @Volatile private var lastLocation: Pair<Double, Double>? = null
 
     private val vibrator     = context.getSystemService(Vibrator::class.java)
     private val audioManager = context.getSystemService(AudioManager::class.java)
@@ -78,13 +79,14 @@ class AlertManager(private val context: Context) {
         alertActive = true
         startAlarm()
 
-        // ── SMS via Twilio ────────────────────────────────────────────
+        // ── SMS from the phone's SIM ─────────────────────────────────
         val now = SystemClock.elapsedRealtime()
         if (alertStartMs == 0L) alertStartMs = now
         val sinceStart = now - alertStartMs
         val sinceLast  = now - lastSmsMs
         // First SMS fires after 15 s of sustained alerting; repeats at most once every 5 min.
-        if (sinceStart >= SMS_INITIAL_DELAY_MS && (lastSmsMs == 0L || sinceLast >= SMS_COOLDOWN_MS)) {
+        if (Prefs.isSmsEnabled(context) &&
+            sinceStart >= SMS_INITIAL_DELAY_MS && (lastSmsMs == 0L || sinceLast >= SMS_COOLDOWN_MS)) {
             val emergency = Prefs.getEmergencyContact(context).trim()
             val fleetMgr  = Prefs.getFleetManagerPhone(context).trim()
             val recipients = buildSet {
@@ -96,7 +98,8 @@ class AlertManager(private val context: Context) {
             } else {
                 lastSmsMs = now
                 val riderName = Prefs.getRiderName(context).ifBlank { "the rider" }
-                scope.launch { sendViaTwilio(recipients.toList(), riderName) }
+                val loc = lastLocation
+                scope.launch { sendViaSim(recipients.toList(), riderName, loc) }
             }
         }
     }
@@ -108,6 +111,9 @@ class AlertManager(private val context: Context) {
     }
 
     fun isActive() = alertActive
+
+    /** Latest GPS fix, included in the alert SMS as a map link. */
+    fun setLastLocation(lat: Double, lng: Double) { lastLocation = Pair(lat, lng) }
 
     fun release() {
         stopAlarm()
@@ -195,58 +201,43 @@ class AlertManager(private val context: Context) {
     }
 
     // ------------------------------------------------------------------
-    // Twilio Programmable SMS
+    // SMS from the driver's own SIM
     // ------------------------------------------------------------------
 
-    private fun sendViaTwilio(numbers: List<String>, riderName: String) {
-        val sid   = BuildConfig.TWILIO_ACCOUNT_SID
-        val token = BuildConfig.TWILIO_AUTH_TOKEN
-        val from  = BuildConfig.TWILIO_FROM_NUMBER
-        if (sid.isBlank() || token.isBlank() || from.isBlank()) {
-            Log.w(TAG, "Twilio credentials not set — SMS skipped")
+    /**
+     * Sends the alert through Android's SmsManager on the phone's own SIM. No gateway or
+     * credentials are involved, and it works on a cellular signal even without mobile data.
+     * Without SEND_SMS permission it only logs: the alarm and dashboard alert still work.
+     */
+    private fun sendViaSim(numbers: List<String>, riderName: String, location: Pair<Double, Double>?) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS)
+            != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "SMS skipped: SEND_SMS permission not granted")
             return
         }
-
-        val message = "SmartHelm Alert: $riderName is showing signs of drowsiness or fatigue. " +
-                      "Please check in immediately."
-        val url     = "https://api.twilio.com/2010-04-01/Accounts/$sid/Messages.json"
-        val creds   = Base64.encodeToString(
-            "$sid:$token".toByteArray(Charsets.UTF_8), Base64.NO_WRAP
-        )
-
+        val sms = context.getSystemService(SmsManager::class.java)
+        if (sms == null) {
+            Log.w(TAG, "SMS skipped: no SmsManager on this device")
+            return
+        }
+        val message = buildAlertSms(riderName, location)
         for (phone in numbers) {
-            val to      = if (phone.startsWith("+")) phone else "+$phone"
-            val payload = "To=${URLEncoder.encode(to, "UTF-8")}" +
-                          "&From=${URLEncoder.encode(from, "UTF-8")}" +
-                          "&Body=${URLEncoder.encode(message, "UTF-8")}"
-
-            var conn: HttpURLConnection? = null
             try {
-                conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    setRequestProperty("Authorization", "Basic $creds")
-                    setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-                    connectTimeout = 10_000
-                    readTimeout    = 10_000
-                    doOutput       = true
-                }
-                conn.outputStream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
-
-                val code     = conn.responseCode
-                val response = (if (code < 400) conn.inputStream else conn.errorStream)
-                    ?.bufferedReader()?.readText() ?: ""
-
-                if (code in 200..299) {
-                    Log.i(TAG, "Twilio sent to $to → HTTP $code")
-                } else {
-                    Log.w(TAG, "Twilio failed: HTTP $code | body: $response | to: $to")
-                }
+                sms.sendMultipartTextMessage(phone, null, sms.divideMessage(message), null, null)
+                Log.i(TAG, "Alert SMS handed to the SIM for $phone")
             } catch (e: Exception) {
-                Log.w(TAG, "Twilio request failed to $to: ${e.message}")
+                Log.w(TAG, "Alert SMS failed for $phone: ${e.message}")
                 FirebaseCrashlytics.getInstance().recordException(e)
-            } finally {
-                conn?.disconnect()
             }
         }
     }
+}
+
+/** Alert text. Kept out of the class so it can be unit-tested without Android. */
+internal fun buildAlertSms(riderName: String, location: Pair<Double, Double>?): String {
+    val base = "SmartHelm alert: $riderName is showing signs of drowsiness while driving. " +
+               "Please call them now."
+    return if (location == null) base
+           else base + " Last location: https://maps.google.com/?q=" +
+                String.format(java.util.Locale.US, "%.5f,%.5f", location.first, location.second)
 }

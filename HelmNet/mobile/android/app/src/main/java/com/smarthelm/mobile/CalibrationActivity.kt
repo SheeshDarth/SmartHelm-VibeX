@@ -1,5 +1,8 @@
 package com.smarthelm.mobile
 
+import android.content.Intent
+import android.os.SystemClock
+import com.smarthelm.mobile.service.DetectionService
 import android.os.Bundle
 import android.util.Log
 import android.util.Size
@@ -32,6 +35,7 @@ class CalibrationActivity : AppCompatActivity() {
     companion object {
         private const val TAG            = "Calibration"
         private const val FRAMES_NEEDED  = 100
+        private const val NO_FACE_HINT_MS = 3_000L
     }
 
     private lateinit var binding: ActivityCalibrationBinding
@@ -40,6 +44,8 @@ class CalibrationActivity : AppCompatActivity() {
 
     private val earSamples  = mutableListOf<Float>()
     private var collecting  = false
+    private var lastFaceMs  = 0L
+    private var hintShown   = false
 
     // ------------------------------------------------------------------
     // Lifecycle
@@ -120,6 +126,8 @@ class CalibrationActivity : AppCompatActivity() {
         binding.btnStartCalibration.isEnabled = false
         binding.progressBar.visibility        = View.VISIBLE
         binding.tvInstructions.text           = "Keep your eyes open naturally…"
+        lastFaceMs = SystemClock.elapsedRealtime()
+        hintShown  = false
     }
 
     private fun calibrateFrame(imageProxy: ImageProxy) {
@@ -130,6 +138,24 @@ class CalibrationActivity : AppCompatActivity() {
             val mpImage = BitmapImageBuilder(imageProxy.toBitmap()).build()
 
             val result = eyeDetector.process(mpImage, tsMs)
+
+            if (!result.faceDetected) {
+                // Tell the driver why nothing is happening instead of sitting at 0 %.
+                if (!hintShown && SystemClock.elapsedRealtime() - lastFaceMs > NO_FACE_HINT_MS) {
+                    hintShown = true
+                    runOnUiThread {
+                        binding.tvInstructions.text =
+                            "Can't see your face. Hold the phone at eye level, in good light, " +
+                            "with your whole face in the picture."
+                    }
+                }
+            } else {
+                lastFaceMs = SystemClock.elapsedRealtime()
+                if (hintShown) {
+                    hintShown = false
+                    runOnUiThread { binding.tvInstructions.text = "Keep your eyes open naturally…" }
+                }
+            }
 
             if (result.faceDetected && result.earSmoothed > 0.1f) {
                 earSamples.add(result.earSmoothed)
@@ -173,9 +199,16 @@ class CalibrationActivity : AppCompatActivity() {
                 "Closed threshold: ${"%.3f".format(earClosed)}"
             binding.progressBar.visibility = View.GONE
             binding.btnDone.visibility     = View.VISIBLE
+            binding.btnDone.text           = "Start detection"
         }
 
-        binding.btnDone.setOnClickListener { finish() }
+        // First run: calibration was opened by Start, so go straight into detection.
+        binding.btnDone.setOnClickListener {
+            if (!Prefs.isDetectionRunning(this)) {
+                startForegroundService(Intent(this, DetectionService::class.java))
+            }
+            finish()
+        }
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()

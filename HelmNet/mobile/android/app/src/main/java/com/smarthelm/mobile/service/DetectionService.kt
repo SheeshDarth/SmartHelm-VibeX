@@ -275,6 +275,7 @@ class DetectionService : LifecycleService() {
             val speedKmph = if (loc.hasSpeed())   loc.speed * 3.6f else -1f
             val bearing   = if (loc.hasBearing()) loc.bearing      else -1f
             currentSpeedKmph = speedKmph
+            alertManager.setLastLocation(loc.latitude, loc.longitude)
             firestoreReporter.setLastLocation(loc.latitude, loc.longitude, speedKmph, bearing)
         }
     }

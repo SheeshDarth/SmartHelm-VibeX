@@ -12,8 +12,9 @@ import com.smarthelm.mobile.databinding.ActivitySetupBinding
 import com.smarthelm.mobile.util.Prefs
 
 /**
- * First-time profile setup:
- *   - Rider name
+ * One-screen sign-up (there is no separate login for drivers):
+ *   - Driver name
+ *   - Phone number (optional, self-declared, shown to the manager)
  *   - Fleet code (6-char, from the manager's dashboard)
  *
  * The fleet code is looked up in /fleets/{code}; the manager phone and fleet
@@ -36,10 +37,8 @@ class SetupActivity : AppCompatActivity() {
         binding.etName.setText(Prefs.getRiderName(this))
         binding.etFleetCode.setText(Prefs.getFleetCode(this))
 
-        // Show verified phone (read-only — from Firebase Auth)
-        val riderPhone = Prefs.getRiderPhone(this)
-            .ifBlank { FirebaseAuth.getInstance().currentUser?.phoneNumber ?: "" }
-        binding.etRiderPhone.setText(riderPhone)
+        // Self-declared and optional: there is no OTP for drivers.
+        binding.etRiderPhone.setText(Prefs.getRiderPhone(this))
 
         binding.btnGetStarted.setOnClickListener { onGetStarted() }
     }
@@ -47,12 +46,21 @@ class SetupActivity : AppCompatActivity() {
     private fun onGetStarted() {
         val name = binding.etName.text?.toString()?.trim() ?: ""
         val code = binding.etFleetCode.text?.toString()?.trim()?.uppercase() ?: ""
+        val phone = binding.etRiderPhone.text?.toString()?.trim() ?: ""
 
         if (name.isEmpty()) {
             binding.etName.error = "Your name is required"
             binding.etName.requestFocus()
             return
         }
+
+        // Same pattern the Firestore rules enforce on riderPhone.
+        if (!PHONE_PATTERN.matches(phone)) {
+            binding.etRiderPhone.error = "Digits, spaces, + ( ) - only"
+            binding.etRiderPhone.requestFocus()
+            return
+        }
+        Prefs.setRiderPhone(this, phone)
 
         // Fleet code is optional — a rider can finish setup without one and add it later.
         if (code.isBlank()) {
@@ -125,5 +133,9 @@ class SetupActivity : AppCompatActivity() {
     private fun setLoading(show: Boolean) {
         binding.progressBar.visibility  = if (show) View.VISIBLE else View.GONE
         binding.btnGetStarted.isEnabled = !show
+    }
+
+    companion object {
+        private val PHONE_PATTERN = Regex("^[+0-9 ()-]{0,20}$")
     }
 }

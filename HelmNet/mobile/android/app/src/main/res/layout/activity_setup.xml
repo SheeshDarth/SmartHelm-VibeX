@@ -54,6 +54,7 @@
             android:layout_height="wrap_content"
             android:hint="Your name"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:textColorHint="#8A8A8A"
             android:layout_marginBottom="8dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_name"
@@ -67,24 +68,26 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Your phone number"
+            android:hint="Your phone number (optional)"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:textColorHint="#8A8A8A"
             android:layout_marginBottom="4dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_rider_phone"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="phone"
-                android:textColor="#AAAAAA"
-                android:enabled="false" />
+                android:maxLength="20"
+                android:textColor="#FFFFFF"
+                android:imeOptions="actionNext" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Verified via OTP"
+            android:text="Shown to your fleet manager so they can call you"
             android:textSize="11sp"
-            android:textColor="#22cc44"
+            android:textColor="#666666"
             android:paddingStart="4dp"
             android:layout_marginBottom="28dp" />
 
@@ -115,6 +118,7 @@
             android:layout_height="wrap_content"
             android:hint="Fleet code  (e.g. K6JB5G)"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:textColorHint="#8A8A8A"
             android:layout_marginBottom="36dp">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/et_fleet_code"
